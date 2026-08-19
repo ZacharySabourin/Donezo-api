@@ -1,0 +1,24 @@
+services:
+  postgres:
+    image: 'postgres:latest'
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PWD}
+      POSTGRES_DB: ${TODO_DB}
+    volumes:
+      - ./config/postgres/initdb.d/:/docker-entrypoint-initdb.d/
+    ports:
+      - '10100:5432'
+    labels:
+      org.springframework.boot.jdbc.parameters: 'ssl=true&sslmode=require'
+    deploy:
+      restart_policy:
+        condition: on-failure
+        max_attempts: 5
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: 256M
+        reservations:
+          cpus: '0.2'
+          memory: 256M
