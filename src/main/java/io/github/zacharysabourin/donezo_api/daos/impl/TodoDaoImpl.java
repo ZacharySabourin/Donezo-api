@@ -42,7 +42,7 @@ public class TodoDaoImpl implements TodoDao {
         // Using a RETURNING query mapped to a UUID to allow proper selecting
         UUID key = jdbcTemplate.queryForObject(sql, UUID.class,
                 newTodo.userId(),
-                newTodo.completed(),
+                newTodo.text(),
                 newTodo.completed(),
                 newTodo.position());
 
