@@ -1,11 +1,11 @@
 package io.github.zacharysabourin.donezo_api.services;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 import io.github.zacharysabourin.donezo_api.dtos.Todo;
+import io.github.zacharysabourin.donezo_api.models.TodoUpdate;
 
 /**
  * Service layer interface. Used to interact with the DAO layer and handle all
@@ -32,14 +32,14 @@ public interface TodoService {
     public Optional<Todo> createNewTodo(Todo newTodo);
 
     /**
-     * Updates the Todo that matches the given id using the provide key/value pairs.
+     * Updates the Todo that matches the given id using the provided update entity.
      * Returns a boolean that indicates update success.
      * 
      * @param todoId  The id of the Todo to update.
      * @param updates All column names and values to update.
      * @return True if successful, false if not.
      */
-    public boolean updateTodo(UUID todoId, Map<String, Object> updates);
+    public boolean updateTodo(UUID todoId, TodoUpdate updates);
 
     /**
      * Deletes the Todo that matches the given user id and Todo id.

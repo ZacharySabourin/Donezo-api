@@ -3,12 +3,10 @@ package io.github.zacharysabourin.donezo_api.daos;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.junit.jupiter.api.MethodOrderer;
@@ -18,10 +16,10 @@ import org.junit.jupiter.api.TestMethodOrder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.dao.DataAccessException;
 
 import io.github.zacharysabourin.donezo_api.config.EmbeddedPostgresWithFlywayDataSourceConfiguration;
 import io.github.zacharysabourin.donezo_api.dtos.Todo;
+import io.github.zacharysabourin.donezo_api.models.TodoUpdate;
 
 @SpringBootTest
 @Import(EmbeddedPostgresWithFlywayDataSourceConfiguration.class)
@@ -75,57 +73,38 @@ class TodoDaoTest {
         UUID validTodoId = allTodos.get(0).id();
 
         // Test single value updates
-        Map<String, Object> updates = new HashMap<>(3);
-        updates.put("position", 22);
-        int numRowsAffected = dao.updateTodo(validTodoId, updates);
+        TodoUpdate update = new TodoUpdate(Optional.ofNullable(null), Optional.ofNullable(null),
+                Optional.ofNullable(22));
+        int numRowsAffected = dao.updateTodo(validTodoId, update);
         assertEquals(1, numRowsAffected);
 
         // next single value update
-        updates.clear();
-        updates.put("text", "Some text to change");
+        update = new TodoUpdate(Optional.ofNullable("Some text to change"), Optional.ofNullable(null),
+                Optional.ofNullable(null));
         validTodoId = allTodos.get(2).id();
-        numRowsAffected = dao.updateTodo(validTodoId, updates);
+        numRowsAffected = dao.updateTodo(validTodoId, update);
         assertEquals(1, numRowsAffected);
 
         // next single value update
-        updates.clear();
-        updates.put("completed", true);
+        update = new TodoUpdate(Optional.ofNullable(null), Optional.ofNullable(true),
+                Optional.ofNullable(null));
         validTodoId = allTodos.get(4).id();
-        numRowsAffected = dao.updateTodo(validTodoId, updates);
+        numRowsAffected = dao.updateTodo(validTodoId, update);
         assertEquals(1, numRowsAffected);
 
         // Test all potential changes at once
-        updates.clear();
-        updates.put("position", 33);
-        updates.put("text", "Some more text to change");
-        updates.put("completed", true);
+        update = new TodoUpdate(Optional.ofNullable("Some more text to change"), Optional.ofNullable(true),
+                Optional.ofNullable(33));
         validTodoId = allTodos.get(8).id();
-        numRowsAffected = dao.updateTodo(validTodoId, updates);
+        numRowsAffected = dao.updateTodo(validTodoId, update);
         assertEquals(1, numRowsAffected);
-    }
-
-    @Test
-    void updateTodo_failure_malformedSQL() {
-        // Fetch all todos to allow use of id values
-        List<Todo> allTodos = dao.getTodos(VALID_USER_ID);
-        UUID validTodoId = allTodos.get(0).id();
-
-        // This column name is invalid
-        Map<String, Object> updates = new HashMap<>(1);
-        updates.put("invalid_column", 22);
-        assertThrows(DataAccessException.class, () -> dao.updateTodo(validTodoId, updates));
-
-        // The column value is not the right type
-        updates.clear();
-        updates.put("position", "fail");
-        assertThrows(DataAccessException.class, () -> dao.updateTodo(validTodoId, updates));
     }
 
     @Test
     void updateTodo_failure_invalidTodoId() {
-        Map<String, Object> updates = new HashMap<>(1);
-        updates.put("position", 22);
-        int numRowsAffected = dao.updateTodo(INVALID_TODO_ID, updates);
+        TodoUpdate update = new TodoUpdate(Optional.ofNullable("Test"), Optional.ofNullable(true),
+                Optional.ofNullable(44));
+        int numRowsAffected = dao.updateTodo(INVALID_TODO_ID, update);
         assertEquals(0, numRowsAffected);
     }
 

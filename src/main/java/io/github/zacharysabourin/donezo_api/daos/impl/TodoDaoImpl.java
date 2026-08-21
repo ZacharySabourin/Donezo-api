@@ -4,7 +4,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 
 import javax.sql.DataSource;
@@ -16,6 +15,7 @@ import org.springframework.stereotype.Repository;
 
 import io.github.zacharysabourin.donezo_api.daos.TodoDao;
 import io.github.zacharysabourin.donezo_api.dtos.Todo;
+import io.github.zacharysabourin.donezo_api.models.TodoUpdate;
 
 @Repository
 public class TodoDaoImpl implements TodoDao {
@@ -53,22 +53,29 @@ public class TodoDaoImpl implements TodoDao {
     }
 
     @Override
-    public int updateTodo(UUID todoId, Map<String, Object> updates) {
+    public int updateTodo(UUID todoId, TodoUpdate updates) {
         String sqlFirstHalf = "update todos set ";
         String sqlSecondHalf = " where id = ?";
+        List<Object> params = new ArrayList<>();
 
-        // Complete the first half of the query using all keys sent by the client
-        // These fields should map 1 to 1 with column names
-        for (String key : updates.keySet()) {
-            sqlFirstHalf = sqlFirstHalf.concat(key + " = ?, ");
+        // Add each value if present in the object and construct the query
+        if (updates.text().isPresent()) {
+            sqlFirstHalf = sqlFirstHalf.concat("text = ?, ");
+            params.add(updates.text().get());
         }
+        if (updates.completed().isPresent()) {
+            sqlFirstHalf = sqlFirstHalf.concat("completed = ?, ");
+            params.add(updates.completed().get());
+        }
+        if (updates.position().isPresent()) {
+            sqlFirstHalf = sqlFirstHalf.concat("position = ?, ");
+            params.add(updates.position().get());
+        }
+
+        params.add(todoId);
 
         // Trim the last 2 bytes of the first half and combine both strings
         String sqlFinal = sqlFirstHalf.substring(0, sqlFirstHalf.length() - 2).concat(sqlSecondHalf);
-
-        // Combine the given values and the id into a list
-        List<Object> params = new ArrayList<>(updates.values());
-        params.add(todoId);
 
         LOGGER.info("Querying DB: '{}' with id: '{}' and values: '{}'", sqlFinal, todoId, params);
         int numRowsAffected = jdbcTemplate.update(sqlFinal, params.toArray());

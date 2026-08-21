@@ -1,7 +1,6 @@
 package io.github.zacharysabourin.donezo_api.controllers;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -24,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 import io.github.zacharysabourin.donezo_api.dtos.Todo;
 import io.github.zacharysabourin.donezo_api.exceptions.models.InternalServerErrorException;
 import io.github.zacharysabourin.donezo_api.exceptions.models.NotFoundException;
+import io.github.zacharysabourin.donezo_api.models.TodoUpdate;
 import io.github.zacharysabourin.donezo_api.services.TodoService;
 
 /**
@@ -75,19 +75,19 @@ public class TodoController {
     }
 
     /**
-     * Updates a specific Todo given the key value pairs. <code>PATCH</code>
-     * request.
+     * Updates a specific Todo given the incoming TodoUpdate request body.
+     * <code>PATCH</code> request.
      * 
      * @param todoId  The specific Todo to update.
-     * @param updates A Map containing all fields to update and their new values.
+     * @param updates The entity used to update an existing Todo.
      * @return A <code>204 No Content</code> if the update was successful. A
      *         <code>404 Not Found</code> if the id was not a valid Todo.
      * @throws NotFoundException Exception thrown if the todo could not be found.
      */
     @PatchMapping("/{id}")
-    public ResponseEntity<HttpStatusCode> updateTodo(@PathVariable("id") UUID todoId,
-            @RequestBody Map<String, Object> updates) throws NotFoundException {
-        LOGGER.info("Updating Todo: '{}' with values: '{}'", todoId, updates.values());
+    public ResponseEntity<HttpStatusCode> updateTodo(@PathVariable("id") UUID todoId, @RequestBody TodoUpdate updates)
+            throws NotFoundException {
+        LOGGER.info("Updating Todo: '{}' with values: '{}'", todoId, updates);
         if (!todoService.updateTodo(todoId, updates)) {
             throw new NotFoundException("No Todo with id: '" + todoId + "'", HttpMethod.PATCH);
         }

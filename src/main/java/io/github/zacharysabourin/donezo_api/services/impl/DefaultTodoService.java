@@ -2,7 +2,6 @@ package io.github.zacharysabourin.donezo_api.services.impl;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -12,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import io.github.zacharysabourin.donezo_api.daos.TodoDao;
 import io.github.zacharysabourin.donezo_api.dtos.Todo;
+import io.github.zacharysabourin.donezo_api.models.TodoUpdate;
 import io.github.zacharysabourin.donezo_api.services.TodoService;
 
 @Service
@@ -44,7 +44,7 @@ public class DefaultTodoService implements TodoService {
     }
 
     @Override
-    public boolean updateTodo(UUID todoId, Map<String, Object> updates) {
+    public boolean updateTodo(UUID todoId, TodoUpdate updates) {
         int numRowsAffected = dao.updateTodo(todoId, updates);
         if (numRowsAffected == 0) {
             LOGGER.info("Failed to Update any data using id: '{}' and values: '{}'", todoId, updates);
