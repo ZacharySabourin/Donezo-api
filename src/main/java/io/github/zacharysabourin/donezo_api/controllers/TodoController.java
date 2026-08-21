@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 import io.github.zacharysabourin.donezo_api.dtos.Todo;
 import io.github.zacharysabourin.donezo_api.exceptions.models.InternalServerErrorException;
 import io.github.zacharysabourin.donezo_api.exceptions.models.NotFoundException;
+import io.github.zacharysabourin.donezo_api.exceptions.models.BadRequestException;
 import io.github.zacharysabourin.donezo_api.models.TodoUpdate;
 import io.github.zacharysabourin.donezo_api.services.TodoService;
 
@@ -78,18 +79,24 @@ public class TodoController {
      * Updates a specific Todo given the incoming TodoUpdate request body.
      * <code>PATCH</code> request.
      * 
-     * @param todoId  The specific Todo to update.
+     * @param id      The specific Todo to update.
      * @param updates The entity used to update an existing Todo.
      * @return A <code>204 No Content</code> if the update was successful. A
-     *         <code>404 Not Found</code> if the id was not a valid Todo.
+     *         <code>404 Not Found</code> if the id was not a valid Todo. A
+     *         <code>400 Bad Request</code> if no valid values were provided
      * @throws NotFoundException Exception thrown if the todo could not be found.
      */
     @PatchMapping("/{id}")
-    public ResponseEntity<HttpStatusCode> updateTodo(@PathVariable("id") UUID todoId, @RequestBody TodoUpdate updates)
-            throws NotFoundException {
-        LOGGER.info("Updating Todo: '{}' with values: '{}'", todoId, updates);
-        if (!todoService.updateTodo(todoId, updates)) {
-            throw new NotFoundException("No Todo with id: '" + todoId + "'", HttpMethod.PATCH);
+    public ResponseEntity<HttpStatusCode> updateTodo(@PathVariable UUID id, @RequestBody TodoUpdate updates)
+            throws NotFoundException, BadRequestException {
+
+        if (updates.completed().isEmpty() && updates.text().isEmpty() && updates.position().isEmpty()) {
+            throw new BadRequestException("No valid updates provided", HttpMethod.PATCH);
+        }
+
+        LOGGER.info("Updating Todo: '{}' with values: '{}'", id, updates);
+        if (!todoService.updateTodo(id, updates)) {
+            throw new NotFoundException("No Todo with id: '" + id + "'", HttpMethod.PATCH);
         }
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
@@ -101,12 +108,14 @@ public class TodoController {
      * @param userId The given user id.
      * @param todoId The given Todo id to delete.
      * @return A <code>204 No Content</code> if the deletion was successful. A
-     *         <code>404 Not Found</code> if the id was not a valid Todo.
+     *         <code>404 Not Found</code> if the id was not a valid Todo. A
+     *         <code>400 Bad Request</code> if no todId is provided.
      * @throws NotFoundException Exception thrown if the todo could not be found.
      */
     @DeleteMapping("/{userId}")
     public ResponseEntity<HttpStatusCode> deleteTodo(@PathVariable UUID userId, @RequestParam UUID todoId)
-            throws NotFoundException {
+            throws NotFoundException{
+    
         LOGGER.info("Deleting Todo '{}'' for user: '{}'", todoId, userId);
         if (!todoService.deleteTodo(userId, todoId)) {
             throw new NotFoundException("No Todo with id: '" + todoId + "'", HttpMethod.DELETE);

@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
+import io.github.zacharysabourin.donezo_api.exceptions.models.BadRequestException;
 import io.github.zacharysabourin.donezo_api.exceptions.models.InternalServerErrorException;
 import io.github.zacharysabourin.donezo_api.exceptions.models.NotFoundException;
 
@@ -54,4 +55,20 @@ public class ApiExceptionhandler extends ResponseEntityExceptionHandler {
         return handleExceptionInternal(ex, null, HttpHeaders.EMPTY, HttpStatus.INTERNAL_SERVER_ERROR, request);
     }
 
+    /**
+     * Customize the handling of {@link BadRequestException}.
+     * <p>
+     * This method delegates to {@link #handleExceptionInternal}.
+     * 
+     * @param ex      the exception to handle
+     * @param request the current request
+     * @return a {@code ResponseEntity} for the response to use, possibly
+     *         {@code null} when the response is already committed
+     */
+    @ResponseBody
+    @ExceptionHandler(BadRequestException.class)
+    public @Nullable ResponseEntity<Object> handleBadRequestException(BadRequestException ex,
+            WebRequest request) {
+        return handleExceptionInternal(ex, null, HttpHeaders.EMPTY, HttpStatus.BAD_REQUEST, request);
+    }
 }
