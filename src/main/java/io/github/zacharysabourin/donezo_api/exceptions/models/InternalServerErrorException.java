@@ -33,7 +33,7 @@ public class InternalServerErrorException extends ServletException implements Er
 
     @Override
     public HttpStatusCode getStatusCode() {
-        return HttpStatus.NOT_FOUND;
+        return HttpStatus.INTERNAL_SERVER_ERROR;
     }
 
     @Override
