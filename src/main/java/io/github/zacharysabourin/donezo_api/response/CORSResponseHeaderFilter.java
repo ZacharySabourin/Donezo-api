@@ -16,6 +16,12 @@ import jakarta.servlet.ServletRequest;
 import jakarta.servlet.ServletResponse;
 import jakarta.servlet.http.HttpServletResponse;
 
+/**
+ * A custom response filter for adding <code>Access-Control-Allow</code> headers
+ * to outbound requests. Filter is enabled and disabled through the
+ * <code>donezo.access-control-allow.enabled</code> value in the
+ * <code>applicaton.properties</code> file.
+ */
 @Component
 public class CORSResponseHeaderFilter implements Filter {
 
