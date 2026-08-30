@@ -49,4 +49,6 @@ public interface TodoService {
      * @return True if successful, false if not.
      */
     public boolean deleteTodo(UUID userId, UUID todoId);
+
+    public boolean deleteMultipleTodos(List<Todo> deletions);
 }

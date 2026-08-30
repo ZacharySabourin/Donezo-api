@@ -27,7 +27,7 @@ public class DefaultTodoService implements TodoService {
     public List<Todo> getAllTodos(UUID userId) {
         List<Todo> results = dao.getTodos(userId);
         if (results == null || results.isEmpty()) {
-            LOGGER.info("No Todos for user {}", userId);
+            LOGGER.warn("No Todos for user {}", userId);
             return Collections.emptyList();
         }
 
@@ -38,7 +38,7 @@ public class DefaultTodoService implements TodoService {
     public Optional<Todo> createNewTodo(Todo newTodo) {
         Optional<Todo> createdTodo = Optional.ofNullable(dao.createTodo(newTodo));
         if (createdTodo.isEmpty()) {
-            LOGGER.info("Failed to create new Todo for user: '{}'", newTodo.userId());
+            LOGGER.error("Failed to create new Todo for user: '{}'", newTodo.userId());
         }
         return createdTodo;
     }
@@ -47,7 +47,7 @@ public class DefaultTodoService implements TodoService {
     public boolean updateTodo(UUID todoId, TodoUpdate updates) {
         int numRowsAffected = dao.updateTodo(todoId, updates);
         if (numRowsAffected == 0) {
-            LOGGER.info("Failed to Update any data using id: '{}' and values: '{}'", todoId, updates);
+            LOGGER.error("Failed to Update any data using id: '{}' and values: '{}'", todoId, updates);
             return false;
         }
 
@@ -58,7 +58,23 @@ public class DefaultTodoService implements TodoService {
     public boolean deleteTodo(UUID userId, UUID todoId) {
         int numRowsDeleted = dao.deleteTodo(userId, todoId);
         if (numRowsDeleted == 0) {
-            LOGGER.info("Failed to delete any data using id: '{}'", todoId);
+            LOGGER.error("Failed to delete any data using id: '{}'", todoId);
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public boolean deleteMultipleTodos(List<Todo> deletions) {
+
+        // Extract all ids into a list for deletion
+        List<UUID> uuids = deletions.stream().map(Todo::id).toList();
+
+        int numRowsDeleted = dao.deleteMultipleTodos(uuids);
+        int difference = uuids.size() - numRowsDeleted;
+        if (difference != 0) {
+            LOGGER.error("Failed to delete some/all data, {} remaining", difference);
             return false;
         }
 

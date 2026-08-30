@@ -44,4 +44,6 @@ public interface TodoDao {
      * @return The number of rows affected by the update. Should be 1.
      */
     public int deleteTodo(UUID userId, UUID todoId);
+
+    public int deleteMultipleTodos(List<UUID> deletions);
 }

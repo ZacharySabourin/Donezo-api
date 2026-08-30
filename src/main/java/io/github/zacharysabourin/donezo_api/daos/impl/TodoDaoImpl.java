@@ -92,6 +92,24 @@ public class TodoDaoImpl implements TodoDao {
         return numRowsAffected;
     }
 
+    @Override
+    public int deleteMultipleTodos(List<UUID> deletions) {
+        String sqlFirstHalf = "delete from todos where id in(";
+
+        // Ensure same number of bind parameters as UUIDs
+        for (int i = 0; i < deletions.size(); i++) {
+            sqlFirstHalf = sqlFirstHalf.concat("?, ");
+        }
+
+        // Trim the last 2 bytes of the first half and combine both strings
+        String sqlFinal = sqlFirstHalf.substring(0, sqlFirstHalf.length() - 2).concat(")");
+
+        LOGGER.info("Querying DB: '{}' with values: '{}'", sqlFinal, deletions);
+        int numRowsAffected = jdbcTemplate.update(sqlFinal, deletions.toArray());
+        LOGGER.info("Updated {} rows", numRowsAffected);
+        return numRowsAffected;
+    }
+
     /*
      * ResultSetExtractor callback function for mapping column names to a Todo
      * entity.

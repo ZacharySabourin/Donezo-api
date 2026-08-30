@@ -21,9 +21,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import io.github.zacharysabourin.donezo_api.dtos.Todo;
+import io.github.zacharysabourin.donezo_api.exceptions.models.BadRequestException;
 import io.github.zacharysabourin.donezo_api.exceptions.models.InternalServerErrorException;
 import io.github.zacharysabourin.donezo_api.exceptions.models.NotFoundException;
-import io.github.zacharysabourin.donezo_api.exceptions.models.BadRequestException;
 import io.github.zacharysabourin.donezo_api.models.TodoUpdate;
 import io.github.zacharysabourin.donezo_api.services.TodoService;
 
@@ -48,7 +48,7 @@ public class TodoController {
      * @param userId The given user id.
      * @return A List of all todos bound to the given user.
      */
-    @GetMapping("/{userId}")
+    @GetMapping({ "/{userId}", "/{userId}/" })
     public List<Todo> getTodos(@PathVariable UUID userId) {
         LOGGER.info("Fetching all Todos for user: '{}'", userId);
         return todoService.getAllTodos(userId);
@@ -64,7 +64,7 @@ public class TodoController {
      * @throws InternalServerErrorException Exception thrown if the new todo is not
      *                                      successfully created.
      */
-    @PostMapping("/{userId}")
+    @PostMapping({ "/{userId}", "/{userId}/" })
     public Todo createTodo(@RequestBody Todo todo) throws InternalServerErrorException {
         LOGGER.info("Creating new Todo with values: '{}'", todo);
         Optional<Todo> createdTodo = todoService.createNewTodo(todo);
@@ -86,7 +86,7 @@ public class TodoController {
      *         <code>400 Bad Request</code> if no valid values were provided
      * @throws NotFoundException Exception thrown if the todo could not be found.
      */
-    @PatchMapping("/{id}")
+    @PatchMapping({ "/{id}", "/{id}/" })
     public ResponseEntity<HttpStatusCode> updateTodo(@PathVariable UUID id, @RequestBody TodoUpdate updates)
             throws NotFoundException, BadRequestException {
 
@@ -112,15 +112,26 @@ public class TodoController {
      *         <code>400 Bad Request</code> if no todId is provided.
      * @throws NotFoundException Exception thrown if the todo could not be found.
      */
-    @DeleteMapping("/{userId}")
+    @DeleteMapping({ "/{userId}", "/{userId}/" })
     public ResponseEntity<HttpStatusCode> deleteTodo(@PathVariable UUID userId, @RequestParam UUID todoId)
-            throws NotFoundException{
-    
+            throws NotFoundException {
+
         LOGGER.info("Deleting Todo '{}'' for user: '{}'", todoId, userId);
         if (!todoService.deleteTodo(userId, todoId)) {
             throw new NotFoundException("No Todo with id: '" + todoId + "'", HttpMethod.DELETE);
         }
 
+        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+    }
+
+    @DeleteMapping({ "", "/" })
+    public ResponseEntity<HttpStatusCode> deleteMultipleTodos(@RequestBody List<Todo> deletions)
+            throws NotFoundException {
+
+        LOGGER.info("Deleting multiple Todos: '{}'", deletions);
+        if (!todoService.deleteMultipleTodos(deletions)) {
+            throw new NotFoundException("No Todos were deleted", HttpMethod.DELETE);
+        }
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
 }
