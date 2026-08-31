@@ -19,6 +19,7 @@ import org.springframework.context.annotation.Import;
 
 import io.github.zacharysabourin.donezo_api.config.EmbeddedPostgresWithFlywayDataSourceConfiguration;
 import io.github.zacharysabourin.donezo_api.dtos.Todo;
+import io.github.zacharysabourin.donezo_api.models.TodoRequest;
 import io.github.zacharysabourin.donezo_api.models.TodoUpdate;
 
 @SpringBootTest
@@ -54,7 +55,7 @@ class TodoDaoTest {
 
     @Test
     void createTodo_success() {
-        Todo todo = new Todo(null, VALID_USER_ID, "Testing the todo creation", false, 200, null);
+        TodoRequest todo = new TodoRequest(VALID_USER_ID, "Testing the todo creation", false, 200);
         Todo result = dao.createTodo(todo);
 
         assertNotNull(result);
@@ -122,5 +123,33 @@ class TodoDaoTest {
         assertEquals(0, dao.deleteTodo(VALID_USER_ID, INVALID_TODO_ID));
         assertEquals(0, dao.deleteTodo(INVALID_USER_ID, validTodoId));
         assertEquals(0, dao.deleteTodo(INVALID_USER_ID, INVALID_TODO_ID));
+    }
+
+    @Test
+    void deleteTodos_success() {
+        List<Todo> allTodos = dao.getTodos(VALID_USER_ID);
+        List<UUID> deletions = allTodos.stream().filter(Todo::completed).map(Todo::id).toList();
+        int deleteCount = dao.deleteMultipleTodos(deletions);
+        assertEquals(deletions.size(), deleteCount);
+
+        // Fetch again to ensure they're missing
+        int originalSize = allTodos.size();
+        allTodos = dao.getTodos(VALID_USER_ID);
+        assertEquals(allTodos.size(), originalSize - deleteCount);
+    }
+
+    @Test
+    void deleteTodos_failure() {
+        List<Todo> allTodos = dao.getTodos(VALID_USER_ID);
+
+        // Change the id of each to ensure they won't exist
+        String update = "aaaa";
+        List<UUID> deletions = allTodos.stream().filter(todo -> todo.position() < 5).map(todo -> {
+            String current = todo.id().toString();
+            return UUID
+                    .fromString(current.replace(current.subSequence(current.length() - 4, current.length()), update));
+        }).toList();
+
+        assertEquals(0, dao.deleteMultipleTodos(deletions));
     }
 }

@@ -24,6 +24,7 @@ import io.github.zacharysabourin.donezo_api.dtos.Todo;
 import io.github.zacharysabourin.donezo_api.exceptions.models.BadRequestException;
 import io.github.zacharysabourin.donezo_api.exceptions.models.InternalServerErrorException;
 import io.github.zacharysabourin.donezo_api.exceptions.models.NotFoundException;
+import io.github.zacharysabourin.donezo_api.models.TodoRequest;
 import io.github.zacharysabourin.donezo_api.models.TodoUpdate;
 import io.github.zacharysabourin.donezo_api.services.TodoService;
 
@@ -65,9 +66,9 @@ public class TodoController {
      *                                      successfully created.
      */
     @PostMapping({ "/{userId}", "/{userId}/" })
-    public Todo createTodo(@RequestBody Todo todo) throws InternalServerErrorException {
-        LOGGER.info("Creating new Todo with values: '{}'", todo);
-        Optional<Todo> createdTodo = todoService.createNewTodo(todo);
+    public Todo createTodo(@RequestBody TodoRequest request) throws InternalServerErrorException {
+        LOGGER.info("Creating new Todo with values: '{}'", request);
+        Optional<Todo> createdTodo = todoService.createNewTodo(request);
         if (createdTodo.isEmpty()) {
             throw new InternalServerErrorException("Error creating new Todo", HttpMethod.POST);
         }
@@ -124,6 +125,16 @@ public class TodoController {
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
 
+    /**
+     * Deletes a list Todo entities given the body of the request.
+     * <code>DELETE</code> request.
+     * 
+     * @param deletions The list of Todos to delete
+     * @return A <code>204 No Content</code> if the deletion was successful. A
+     *         <code>404 Not Found</code> if no Todos were deleted. A
+     *         <code>400 Bad Request</code> if no body is provided.
+     * @throws NotFoundException Exception thrown if the todos could not be found.
+     */
     @DeleteMapping({ "", "/" })
     public ResponseEntity<HttpStatusCode> deleteMultipleTodos(@RequestBody List<Todo> deletions)
             throws NotFoundException {

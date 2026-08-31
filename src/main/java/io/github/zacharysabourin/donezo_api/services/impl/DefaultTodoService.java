@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 
 import io.github.zacharysabourin.donezo_api.daos.TodoDao;
 import io.github.zacharysabourin.donezo_api.dtos.Todo;
+import io.github.zacharysabourin.donezo_api.models.TodoRequest;
 import io.github.zacharysabourin.donezo_api.models.TodoUpdate;
 import io.github.zacharysabourin.donezo_api.services.TodoService;
 
@@ -35,10 +36,10 @@ public class DefaultTodoService implements TodoService {
     }
 
     @Override
-    public Optional<Todo> createNewTodo(Todo newTodo) {
-        Optional<Todo> createdTodo = Optional.ofNullable(dao.createTodo(newTodo));
+    public Optional<Todo> createNewTodo(TodoRequest request) {
+        Optional<Todo> createdTodo = Optional.ofNullable(dao.createTodo(request));
         if (createdTodo.isEmpty()) {
-            LOGGER.error("Failed to create new Todo for user: '{}'", newTodo.userId());
+            LOGGER.error("Failed to create new Todo for user: '{}'", request.userId());
         }
         return createdTodo;
     }

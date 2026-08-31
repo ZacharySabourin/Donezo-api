@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.UUID;
 
 import io.github.zacharysabourin.donezo_api.dtos.Todo;
+import io.github.zacharysabourin.donezo_api.models.TodoRequest;
 import io.github.zacharysabourin.donezo_api.models.TodoUpdate;
 
 /**
@@ -20,12 +21,12 @@ public interface TodoDao {
     public List<Todo> getTodos(UUID userId);
 
     /**
-     * Persists a given Todo entity.
+     * Persists a new Todo entity given the TodoRequest object.
      * 
-     * @param newTodo The Todo entity to persist.
+     * @param request The incoming TodoRequest.
      * @return Returns the newly persisted Todo once saved.
      */
-    public Todo createTodo(Todo newTodo);
+    public Todo createTodo(TodoRequest request);
 
     /**
      * Updates a specific Todo entity using the provided update values.
@@ -45,5 +46,12 @@ public interface TodoDao {
      */
     public int deleteTodo(UUID userId, UUID todoId);
 
+    /**
+     * Deletes all Todos given the ids.
+     * 
+     * @param deletions The list of ids of Todo to delete.
+     * @return The number of rows affected by the update. Should be the same length
+     *         as the incoming list.
+     */
     public int deleteMultipleTodos(List<UUID> deletions);
 }

@@ -15,6 +15,7 @@ import org.springframework.stereotype.Repository;
 
 import io.github.zacharysabourin.donezo_api.daos.TodoDao;
 import io.github.zacharysabourin.donezo_api.dtos.Todo;
+import io.github.zacharysabourin.donezo_api.models.TodoRequest;
 import io.github.zacharysabourin.donezo_api.models.TodoUpdate;
 
 @Repository
@@ -35,16 +36,16 @@ public class TodoDaoImpl implements TodoDao {
     }
 
     @Override
-    public Todo createTodo(Todo newTodo) {
+    public Todo createTodo(TodoRequest request) {
         String sql = "insert into todos (user_id, text, completed, position) values (?, ?, ?, ?) RETURNING id";
-        LOGGER.info("Updating DB: '{}' for userId: '{}'", sql, newTodo.userId());
+        LOGGER.info("Updating DB: '{}' for userId: '{}'", sql, request.userId());
 
         // Using a RETURNING query mapped to a UUID to allow proper selecting
         UUID key = jdbcTemplate.queryForObject(sql, UUID.class,
-                newTodo.userId(),
-                newTodo.text(),
-                newTodo.completed(),
-                newTodo.position());
+                request.userId(),
+                request.text(),
+                request.completed(),
+                request.position());
 
         // Do a quick query to retrieve the newly persisted Todo
         String selectSql = "select * from todos where id = ?";
