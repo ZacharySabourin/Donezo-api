@@ -11,8 +11,9 @@ import org.springframework.stereotype.Service;
 
 import io.github.zacharysabourin.donezo_api.daos.TodoDao;
 import io.github.zacharysabourin.donezo_api.dtos.Todo;
+import io.github.zacharysabourin.donezo_api.models.BulkTodoUpdateRequest;
 import io.github.zacharysabourin.donezo_api.models.TodoRequest;
-import io.github.zacharysabourin.donezo_api.models.TodoUpdate;
+import io.github.zacharysabourin.donezo_api.models.TodoUpdateRequest;
 import io.github.zacharysabourin.donezo_api.services.TodoService;
 
 @Service
@@ -45,10 +46,22 @@ public class DefaultTodoService implements TodoService {
     }
 
     @Override
-    public boolean updateTodo(UUID todoId, TodoUpdate updates) {
+    public boolean updateTodo(UUID todoId, TodoUpdateRequest updates) {
         int numRowsAffected = dao.updateTodo(todoId, updates);
         if (numRowsAffected == 0) {
             LOGGER.error("Failed to Update any data using id: '{}' and values: '{}'", todoId, updates);
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public boolean updateTodos(List<BulkTodoUpdateRequest> updates) {
+        int numRowsAffected = dao.updateTodos(updates);
+        int difference = updates.size() - numRowsAffected;
+        if (difference != 0) {
+            LOGGER.error("Failed to Update some/all values, {} remaining", difference);
             return false;
         }
 

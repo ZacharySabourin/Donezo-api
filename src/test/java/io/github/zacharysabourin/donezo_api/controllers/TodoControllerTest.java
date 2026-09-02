@@ -27,7 +27,7 @@ import org.springframework.test.web.servlet.client.RestTestClient.RequestBodySpe
 import io.github.zacharysabourin.donezo_api.config.EmbeddedPostgresWithFlywayDataSourceConfiguration;
 import io.github.zacharysabourin.donezo_api.dtos.Todo;
 import io.github.zacharysabourin.donezo_api.models.TodoRequest;
-import io.github.zacharysabourin.donezo_api.models.TodoUpdate;
+import io.github.zacharysabourin.donezo_api.models.TodoUpdateRequest;
 
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
 @AutoConfigureRestTestClient
@@ -113,7 +113,7 @@ class TodoControllerTest {
 				.exchange()
 				.returnResult(Todo[].class).getResponseBody();
 
-		TodoUpdate update = new TodoUpdate(Optional.ofNullable("This is an update"), Optional.ofNullable(false),
+		TodoUpdateRequest update = new TodoUpdateRequest(Optional.ofNullable("This is an update"), Optional.ofNullable(false),
 				Optional.ofNullable(444));
 		client.patch().uri(BASE_URL + allTodos[0].id().toString())
 				.accept(MediaType.APPLICATION_JSON)
@@ -122,7 +122,7 @@ class TodoControllerTest {
 				.expectStatus().isNoContent();
 
 		// Single value updates
-		update = new TodoUpdate(Optional.ofNullable("Another update"), Optional.ofNullable(null),
+		update = new TodoUpdateRequest(Optional.ofNullable("Another update"), Optional.ofNullable(null),
 				Optional.ofNullable(null));
 		client.patch().uri(BASE_URL + allTodos[4].id().toString())
 				.accept(MediaType.APPLICATION_JSON)
@@ -130,14 +130,14 @@ class TodoControllerTest {
 				.exchange()
 				.expectStatus().isNoContent();
 
-		update = new TodoUpdate(Optional.ofNullable(null), Optional.ofNullable(true), Optional.ofNullable(null));
+		update = new TodoUpdateRequest(Optional.ofNullable(null), Optional.ofNullable(true), Optional.ofNullable(null));
 		client.patch().uri(BASE_URL + allTodos[2].id().toString())
 				.accept(MediaType.APPLICATION_JSON)
 				.body(update)
 				.exchange()
 				.expectStatus().isNoContent();
 
-		update = new TodoUpdate(Optional.ofNullable(null), Optional.ofNullable(null), Optional.ofNullable(1234));
+		update = new TodoUpdateRequest(Optional.ofNullable(null), Optional.ofNullable(null), Optional.ofNullable(1234));
 		client.patch().uri(BASE_URL + allTodos[8].id().toString())
 				.accept(MediaType.APPLICATION_JSON)
 				.body(update)
@@ -153,7 +153,7 @@ class TodoControllerTest {
 				.exchange()
 				.returnResult(Todo[].class).getResponseBody();
 
-		TodoUpdate update = new TodoUpdate(Optional.ofNullable(null), Optional.ofNullable(null),
+		TodoUpdateRequest update = new TodoUpdateRequest(Optional.ofNullable(null), Optional.ofNullable(null),
 				Optional.ofNullable(null));
 		client.patch().uri(BASE_URL + allTodos[0].id().toString())
 				.accept(MediaType.APPLICATION_JSON)
@@ -165,7 +165,7 @@ class TodoControllerTest {
 	@Test
 	void updateTodo_failure_invalidId() {
 
-		TodoUpdate update = new TodoUpdate(Optional.ofNullable("This is an update"), Optional.ofNullable(false),
+		TodoUpdateRequest update = new TodoUpdateRequest(Optional.ofNullable("This is an update"), Optional.ofNullable(false),
 				Optional.ofNullable(444));
 		client.patch().uri(BASE_URL + INVALID_USER_ID)
 				.accept(MediaType.APPLICATION_JSON)

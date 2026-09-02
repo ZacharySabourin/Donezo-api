@@ -20,7 +20,7 @@ import org.springframework.context.annotation.Import;
 import io.github.zacharysabourin.donezo_api.config.EmbeddedPostgresWithFlywayDataSourceConfiguration;
 import io.github.zacharysabourin.donezo_api.dtos.Todo;
 import io.github.zacharysabourin.donezo_api.models.TodoRequest;
-import io.github.zacharysabourin.donezo_api.models.TodoUpdate;
+import io.github.zacharysabourin.donezo_api.models.TodoUpdateRequest;
 
 @SpringBootTest
 @Import(EmbeddedPostgresWithFlywayDataSourceConfiguration.class)
@@ -74,27 +74,27 @@ class TodoDaoTest {
         UUID validTodoId = allTodos.get(0).id();
 
         // Test single value updates
-        TodoUpdate update = new TodoUpdate(Optional.ofNullable(null), Optional.ofNullable(null),
+        TodoUpdateRequest update = new TodoUpdateRequest(Optional.ofNullable(null), Optional.ofNullable(null),
                 Optional.ofNullable(22));
         int numRowsAffected = dao.updateTodo(validTodoId, update);
         assertEquals(1, numRowsAffected);
 
         // next single value update
-        update = new TodoUpdate(Optional.ofNullable("Some text to change"), Optional.ofNullable(null),
+        update = new TodoUpdateRequest(Optional.ofNullable("Some text to change"), Optional.ofNullable(null),
                 Optional.ofNullable(null));
         validTodoId = allTodos.get(2).id();
         numRowsAffected = dao.updateTodo(validTodoId, update);
         assertEquals(1, numRowsAffected);
 
         // next single value update
-        update = new TodoUpdate(Optional.ofNullable(null), Optional.ofNullable(true),
+        update = new TodoUpdateRequest(Optional.ofNullable(null), Optional.ofNullable(true),
                 Optional.ofNullable(null));
         validTodoId = allTodos.get(4).id();
         numRowsAffected = dao.updateTodo(validTodoId, update);
         assertEquals(1, numRowsAffected);
 
         // Test all potential changes at once
-        update = new TodoUpdate(Optional.ofNullable("Some more text to change"), Optional.ofNullable(true),
+        update = new TodoUpdateRequest(Optional.ofNullable("Some more text to change"), Optional.ofNullable(true),
                 Optional.ofNullable(33));
         validTodoId = allTodos.get(8).id();
         numRowsAffected = dao.updateTodo(validTodoId, update);
@@ -103,7 +103,7 @@ class TodoDaoTest {
 
     @Test
     void updateTodo_failure_invalidTodoId() {
-        TodoUpdate update = new TodoUpdate(Optional.ofNullable("Test"), Optional.ofNullable(true),
+        TodoUpdateRequest update = new TodoUpdateRequest(Optional.ofNullable("Test"), Optional.ofNullable(true),
                 Optional.ofNullable(44));
         int numRowsAffected = dao.updateTodo(INVALID_TODO_ID, update);
         assertEquals(0, numRowsAffected);

@@ -5,8 +5,9 @@ import java.util.Optional;
 import java.util.UUID;
 
 import io.github.zacharysabourin.donezo_api.dtos.Todo;
+import io.github.zacharysabourin.donezo_api.models.BulkTodoUpdateRequest;
 import io.github.zacharysabourin.donezo_api.models.TodoRequest;
-import io.github.zacharysabourin.donezo_api.models.TodoUpdate;
+import io.github.zacharysabourin.donezo_api.models.TodoUpdateRequest;
 
 /**
  * Service layer interface. Used to interact with the DAO layer and handle all
@@ -37,10 +38,19 @@ public interface TodoService {
      * Returns a boolean that indicates update success.
      * 
      * @param todoId  The id of the Todo to update.
-     * @param updates All column names and values to update.
+     * @param updates All values to update.
      * @return True if successful, false if not.
      */
-    public boolean updateTodo(UUID todoId, TodoUpdate updates);
+    public boolean updateTodo(UUID todoId, TodoUpdateRequest updates);
+
+    /**
+     * Updates the Todos that matches the given ids using the provided list.
+     * Returns a boolean that indicates total update success.
+     * 
+     * @param updates All ids and values to update.
+     * @return True if successful, false if not.
+     */
+    public boolean updateTodos(List<BulkTodoUpdateRequest> updates);
 
     /**
      * Deletes the Todo that matches the given user id and Todo id.

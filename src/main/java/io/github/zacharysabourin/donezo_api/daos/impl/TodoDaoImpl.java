@@ -15,8 +15,9 @@ import org.springframework.stereotype.Repository;
 
 import io.github.zacharysabourin.donezo_api.daos.TodoDao;
 import io.github.zacharysabourin.donezo_api.dtos.Todo;
+import io.github.zacharysabourin.donezo_api.models.BulkTodoUpdateRequest;
 import io.github.zacharysabourin.donezo_api.models.TodoRequest;
-import io.github.zacharysabourin.donezo_api.models.TodoUpdate;
+import io.github.zacharysabourin.donezo_api.models.TodoUpdateRequest;
 
 @Repository
 public class TodoDaoImpl implements TodoDao {
@@ -54,7 +55,7 @@ public class TodoDaoImpl implements TodoDao {
     }
 
     @Override
-    public int updateTodo(UUID todoId, TodoUpdate updates) {
+    public int updateTodo(UUID todoId, TodoUpdateRequest updates) {
         String sqlFirstHalf = "update todos set ";
         String sqlSecondHalf = " where id = ?";
         List<Object> params = new ArrayList<>();
@@ -79,6 +80,26 @@ public class TodoDaoImpl implements TodoDao {
         String sqlFinal = sqlFirstHalf.substring(0, sqlFirstHalf.length() - 2).concat(sqlSecondHalf);
 
         LOGGER.info("Querying DB: '{}' with id: '{}' and values: '{}'", sqlFinal, todoId, params);
+        int numRowsAffected = jdbcTemplate.update(sqlFinal, params.toArray());
+        LOGGER.info("Updated {} rows", numRowsAffected);
+        return numRowsAffected;
+    }
+
+    @Override
+    public int updateTodos(List<BulkTodoUpdateRequest> updates) {
+        String sqlFirstHalf = "update todos as t set position = v.new_position from (values ";
+        String sqlSecondHalf = ") as v(id, new_position) where t.id = v.id::uuid";
+
+        List<Object> params = new ArrayList<>(updates.size() * 2);
+
+        for (BulkTodoUpdateRequest update : updates) {
+            sqlFirstHalf = sqlFirstHalf.concat("(?, ?), ");
+            params.add(update.id());
+            params.add(update.position());
+        }
+
+        String sqlFinal = sqlFirstHalf.substring(0, sqlFirstHalf.length() - 2).concat(sqlSecondHalf);
+        LOGGER.info("Querying DB: '{}' with values: '{}'", sqlFinal, params);
         int numRowsAffected = jdbcTemplate.update(sqlFinal, params.toArray());
         LOGGER.info("Updated {} rows", numRowsAffected);
         return numRowsAffected;
