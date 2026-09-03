@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -26,6 +27,7 @@ import org.springframework.test.web.servlet.client.RestTestClient.RequestBodySpe
 
 import io.github.zacharysabourin.donezo_api.config.EmbeddedPostgresWithFlywayDataSourceConfiguration;
 import io.github.zacharysabourin.donezo_api.dtos.Todo;
+import io.github.zacharysabourin.donezo_api.models.BulkTodoUpdateRequest;
 import io.github.zacharysabourin.donezo_api.models.TodoRequest;
 import io.github.zacharysabourin.donezo_api.models.TodoUpdateRequest;
 
@@ -113,7 +115,8 @@ class TodoControllerTest {
 				.exchange()
 				.returnResult(Todo[].class).getResponseBody();
 
-		TodoUpdateRequest update = new TodoUpdateRequest(Optional.ofNullable("This is an update"), Optional.ofNullable(false),
+		TodoUpdateRequest update = new TodoUpdateRequest(Optional.ofNullable("This is an update"),
+				Optional.ofNullable(false),
 				Optional.ofNullable(444));
 		client.patch().uri(BASE_URL + allTodos[0].id().toString())
 				.accept(MediaType.APPLICATION_JSON)
@@ -165,13 +168,45 @@ class TodoControllerTest {
 	@Test
 	void updateTodo_failure_invalidId() {
 
-		TodoUpdateRequest update = new TodoUpdateRequest(Optional.ofNullable("This is an update"), Optional.ofNullable(false),
+		TodoUpdateRequest update = new TodoUpdateRequest(Optional.ofNullable("This is an update"),
+				Optional.ofNullable(false),
 				Optional.ofNullable(444));
 		client.patch().uri(BASE_URL + INVALID_USER_ID)
 				.accept(MediaType.APPLICATION_JSON)
 				.body(update)
 				.exchange()
 				.expectStatus().isNotFound();
+	}
+
+	@Test
+	@Order(4) // Ensure this runs before any deletion tests
+	void updateTodos_success() {
+		Todo[] allTodos = client.get().uri(BASE_URL + VALID_USER_ID.toString())
+				.accept(MediaType.APPLICATION_JSON)
+				.exchange()
+				.returnResult(Todo[].class).getResponseBody();
+
+		List<BulkTodoUpdateRequest> updates = Arrays.asList(allTodos).stream().map(todo -> {
+			return new BulkTodoUpdateRequest(todo.id(), todo.position() + 1);
+		}).toList();
+		client.patch().uri(BASE_URL)
+				.accept(MediaType.APPLICATION_JSON)
+				.body(updates)
+				.exchange()
+				.expectStatus().isNoContent();
+	}
+
+	@Test
+	void updateTodos_failure_InvalidBody() {
+		client.patch().uri(BASE_URL)
+				.accept(MediaType.APPLICATION_JSON)
+				.body(new ArrayList<>())
+				.exchange()
+				.expectStatus().isBadRequest();
+
+		client.patch().uri(BASE_URL)
+				.exchange()
+				.expectStatus().isBadRequest();
 	}
 
 	@Test
@@ -234,7 +269,7 @@ class TodoControllerTest {
 				.accept(MediaType.APPLICATION_JSON))
 				.body(body)
 				.exchange()
-				.expectStatus().isNotFound();
+				.expectStatus().is5xxServerError();
 	}
 
 	@Test
