@@ -87,6 +87,10 @@ public class TodoDaoImpl implements TodoDao {
 
     @Override
     public int updateTodos(List<BulkTodoUpdateRequest> updates) {
+        if (updates.isEmpty()) {
+            LOGGER.info("No updates to make. List size 0");
+            return 0;
+        }
         String sqlFirstHalf = "update todos as t set position = v.new_position from (values ";
         String sqlSecondHalf = ") as v(id, new_position) where t.id = v.id::uuid";
 

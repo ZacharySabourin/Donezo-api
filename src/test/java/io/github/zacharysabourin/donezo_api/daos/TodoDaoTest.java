@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -19,6 +20,7 @@ import org.springframework.context.annotation.Import;
 
 import io.github.zacharysabourin.donezo_api.config.EmbeddedPostgresWithFlywayDataSourceConfiguration;
 import io.github.zacharysabourin.donezo_api.dtos.Todo;
+import io.github.zacharysabourin.donezo_api.models.BulkTodoUpdateRequest;
 import io.github.zacharysabourin.donezo_api.models.TodoRequest;
 import io.github.zacharysabourin.donezo_api.models.TodoUpdateRequest;
 
@@ -68,6 +70,7 @@ class TodoDaoTest {
     }
 
     @Test
+    @Order(2) // Ensure this runs before any deletion tests
     void updateTodo_success() {
         // Fetch all todos to allow use of id values
         List<Todo> allTodos = dao.getTodos(VALID_USER_ID);
@@ -107,6 +110,31 @@ class TodoDaoTest {
                 Optional.ofNullable(44));
         int numRowsAffected = dao.updateTodo(INVALID_TODO_ID, update);
         assertEquals(0, numRowsAffected);
+    }
+
+    @Test
+    @Order(3) // Ensure this runs before any deletion tests
+    void updateTodos_success() {
+        List<Todo> allTodos = dao.getTodos(VALID_USER_ID);
+        List<BulkTodoUpdateRequest> updates = allTodos.stream().map(todo -> {
+            return new BulkTodoUpdateRequest(todo.id(), todo.position() + 1);
+        }).toList();
+
+        assertEquals(allTodos.size(), dao.updateTodos(updates));
+    }
+
+    @Test
+    void updateTodos_failure() {
+        int numRowsAffected = dao.updateTodos(new ArrayList<>());
+        assertEquals(0, numRowsAffected);
+
+        List<Todo> allTodos = dao.getTodos(VALID_USER_ID);
+        List<BulkTodoUpdateRequest> updates = allTodos.stream().map(todo -> {
+            // Use invalid id for each update
+            return new BulkTodoUpdateRequest(INVALID_TODO_ID, todo.position() + 1);
+        }).toList();
+
+        assertEquals(0, dao.updateTodos(updates));
     }
 
     @Test
