@@ -11,6 +11,6 @@ import java.util.Optional;
  * @param completed
  * @param position
  */
-public record TodoUpdate(Optional<String> text, Optional<Boolean> completed, Optional<Integer> position) {
+public record TodoUpdateRequest(Optional<String> text, Optional<Boolean> completed, Optional<Integer> position) {
 
 }

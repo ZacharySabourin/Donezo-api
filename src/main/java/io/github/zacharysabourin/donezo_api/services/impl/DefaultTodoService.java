@@ -11,7 +11,9 @@ import org.springframework.stereotype.Service;
 
 import io.github.zacharysabourin.donezo_api.daos.TodoDao;
 import io.github.zacharysabourin.donezo_api.dtos.Todo;
-import io.github.zacharysabourin.donezo_api.models.TodoUpdate;
+import io.github.zacharysabourin.donezo_api.models.BulkTodoUpdateRequest;
+import io.github.zacharysabourin.donezo_api.models.TodoRequest;
+import io.github.zacharysabourin.donezo_api.models.TodoUpdateRequest;
 import io.github.zacharysabourin.donezo_api.services.TodoService;
 
 @Service
@@ -27,7 +29,7 @@ public class DefaultTodoService implements TodoService {
     public List<Todo> getAllTodos(UUID userId) {
         List<Todo> results = dao.getTodos(userId);
         if (results == null || results.isEmpty()) {
-            LOGGER.info("No Todos for user {}", userId);
+            LOGGER.warn("No Todos for user {}", userId);
             return Collections.emptyList();
         }
 
@@ -35,19 +37,31 @@ public class DefaultTodoService implements TodoService {
     }
 
     @Override
-    public Optional<Todo> createNewTodo(Todo newTodo) {
-        Optional<Todo> createdTodo = Optional.ofNullable(dao.createTodo(newTodo));
+    public Optional<Todo> createNewTodo(TodoRequest request) {
+        Optional<Todo> createdTodo = Optional.ofNullable(dao.createTodo(request));
         if (createdTodo.isEmpty()) {
-            LOGGER.info("Failed to create new Todo for user: '{}'", newTodo.userId());
+            LOGGER.error("Failed to create new Todo for user: '{}'", request.userId());
         }
         return createdTodo;
     }
 
     @Override
-    public boolean updateTodo(UUID todoId, TodoUpdate updates) {
+    public boolean updateTodo(UUID todoId, TodoUpdateRequest updates) {
         int numRowsAffected = dao.updateTodo(todoId, updates);
         if (numRowsAffected == 0) {
-            LOGGER.info("Failed to Update any data using id: '{}' and values: '{}'", todoId, updates);
+            LOGGER.error("Failed to Update any data using id: '{}' and values: '{}'", todoId, updates);
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public boolean updateTodos(List<BulkTodoUpdateRequest> updates) {
+        int numRowsAffected = dao.updateTodos(updates);
+        int difference = updates.size() - numRowsAffected;
+        if (difference != 0) {
+            LOGGER.error("Failed to Update some/all values, {} remaining", difference);
             return false;
         }
 
@@ -58,7 +72,23 @@ public class DefaultTodoService implements TodoService {
     public boolean deleteTodo(UUID userId, UUID todoId) {
         int numRowsDeleted = dao.deleteTodo(userId, todoId);
         if (numRowsDeleted == 0) {
-            LOGGER.info("Failed to delete any data using id: '{}'", todoId);
+            LOGGER.error("Failed to delete any data using id: '{}'", todoId);
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public boolean deleteMultipleTodos(List<Todo> deletions) {
+
+        // Extract all ids into a list for deletion
+        List<UUID> uuids = deletions.stream().map(Todo::id).toList();
+
+        int numRowsDeleted = dao.deleteMultipleTodos(uuids);
+        int difference = uuids.size() - numRowsDeleted;
+        if (difference != 0) {
+            LOGGER.error("Failed to delete some/all data, {} remaining", difference);
             return false;
         }
 

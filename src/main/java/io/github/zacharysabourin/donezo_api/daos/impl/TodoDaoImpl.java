@@ -15,7 +15,9 @@ import org.springframework.stereotype.Repository;
 
 import io.github.zacharysabourin.donezo_api.daos.TodoDao;
 import io.github.zacharysabourin.donezo_api.dtos.Todo;
-import io.github.zacharysabourin.donezo_api.models.TodoUpdate;
+import io.github.zacharysabourin.donezo_api.models.BulkTodoUpdateRequest;
+import io.github.zacharysabourin.donezo_api.models.TodoRequest;
+import io.github.zacharysabourin.donezo_api.models.TodoUpdateRequest;
 
 @Repository
 public class TodoDaoImpl implements TodoDao {
@@ -35,16 +37,16 @@ public class TodoDaoImpl implements TodoDao {
     }
 
     @Override
-    public Todo createTodo(Todo newTodo) {
+    public Todo createTodo(TodoRequest request) {
         String sql = "insert into todos (user_id, text, completed, position) values (?, ?, ?, ?) RETURNING id";
-        LOGGER.info("Updating DB: '{}' for userId: '{}'", sql, newTodo.userId());
+        LOGGER.info("Updating DB: '{}' for userId: '{}'", sql, request.userId());
 
         // Using a RETURNING query mapped to a UUID to allow proper selecting
         UUID key = jdbcTemplate.queryForObject(sql, UUID.class,
-                newTodo.userId(),
-                newTodo.text(),
-                newTodo.completed(),
-                newTodo.position());
+                request.userId(),
+                request.text(),
+                request.completed(),
+                request.position());
 
         // Do a quick query to retrieve the newly persisted Todo
         String selectSql = "select * from todos where id = ?";
@@ -53,7 +55,7 @@ public class TodoDaoImpl implements TodoDao {
     }
 
     @Override
-    public int updateTodo(UUID todoId, TodoUpdate updates) {
+    public int updateTodo(UUID todoId, TodoUpdateRequest updates) {
         String sqlFirstHalf = "update todos set ";
         String sqlSecondHalf = " where id = ?";
         List<Object> params = new ArrayList<>();
@@ -84,11 +86,57 @@ public class TodoDaoImpl implements TodoDao {
     }
 
     @Override
+    public int updateTodos(List<BulkTodoUpdateRequest> updates) {
+        if (updates.isEmpty()) {
+            LOGGER.info("No updates to make. List size 0");
+            return 0;
+        }
+        String sqlFirstHalf = "update todos as t set position = v.new_position from (values ";
+        String sqlSecondHalf = ") as v(id, new_position) where t.id = v.id::uuid";
+
+        List<Object> params = new ArrayList<>(updates.size() * 2);
+
+        for (BulkTodoUpdateRequest update : updates) {
+            sqlFirstHalf = sqlFirstHalf.concat("(?, ?), ");
+            params.add(update.id());
+            params.add(update.position());
+        }
+
+        String sqlFinal = sqlFirstHalf.substring(0, sqlFirstHalf.length() - 2).concat(sqlSecondHalf);
+        LOGGER.info("Querying DB: '{}' with values: '{}'", sqlFinal, params);
+        int numRowsAffected = jdbcTemplate.update(sqlFinal, params.toArray());
+        LOGGER.info("Updated {} rows", numRowsAffected);
+        return numRowsAffected;
+    }
+
+    @Override
     public int deleteTodo(UUID userId, UUID todoId) {
         String sql = "delete from todos where user_id = ? and id = ?";
         LOGGER.info("Updating DB: '{}' for userId: '{}'", sql, userId);
         int numRowsAffected = jdbcTemplate.update(sql, userId, todoId);
         LOGGER.info("Deleted {} rows", numRowsAffected);
+        return numRowsAffected;
+    }
+
+    @Override
+    public int deleteMultipleTodos(List<UUID> deletions) {
+        if (deletions.isEmpty()) {
+            LOGGER.info("No deletions to make. List size 0");
+            return 0;
+        }
+        String sqlFirstHalf = "delete from todos where id in(";
+
+        // Ensure same number of bind parameters as UUIDs
+        for (int i = 0; i < deletions.size(); i++) {
+            sqlFirstHalf = sqlFirstHalf.concat("?, ");
+        }
+
+        // Trim the last 2 bytes of the first half and combine both strings
+        String sqlFinal = sqlFirstHalf.substring(0, sqlFirstHalf.length() - 2).concat(")");
+
+        LOGGER.info("Querying DB: '{}' with values: '{}'", sqlFinal, deletions);
+        int numRowsAffected = jdbcTemplate.update(sqlFinal, deletions.toArray());
+        LOGGER.info("Updated {} rows", numRowsAffected);
         return numRowsAffected;
     }
 

@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -19,7 +20,9 @@ import org.springframework.context.annotation.Import;
 
 import io.github.zacharysabourin.donezo_api.config.EmbeddedPostgresWithFlywayDataSourceConfiguration;
 import io.github.zacharysabourin.donezo_api.dtos.Todo;
-import io.github.zacharysabourin.donezo_api.models.TodoUpdate;
+import io.github.zacharysabourin.donezo_api.models.BulkTodoUpdateRequest;
+import io.github.zacharysabourin.donezo_api.models.TodoRequest;
+import io.github.zacharysabourin.donezo_api.models.TodoUpdateRequest;
 
 @SpringBootTest
 @Import(EmbeddedPostgresWithFlywayDataSourceConfiguration.class)
@@ -54,7 +57,7 @@ class TodoDaoTest {
 
     @Test
     void createTodo_success() {
-        Todo todo = new Todo(null, VALID_USER_ID, "Testing the todo creation", false, 200, null);
+        TodoRequest todo = new TodoRequest(VALID_USER_ID, "Testing the todo creation", false, 200);
         Todo result = dao.createTodo(todo);
 
         assertNotNull(result);
@@ -67,33 +70,34 @@ class TodoDaoTest {
     }
 
     @Test
+    @Order(2) // Ensure this runs before any deletion tests
     void updateTodo_success() {
         // Fetch all todos to allow use of id values
         List<Todo> allTodos = dao.getTodos(VALID_USER_ID);
         UUID validTodoId = allTodos.get(0).id();
 
         // Test single value updates
-        TodoUpdate update = new TodoUpdate(Optional.ofNullable(null), Optional.ofNullable(null),
+        TodoUpdateRequest update = new TodoUpdateRequest(Optional.ofNullable(null), Optional.ofNullable(null),
                 Optional.ofNullable(22));
         int numRowsAffected = dao.updateTodo(validTodoId, update);
         assertEquals(1, numRowsAffected);
 
         // next single value update
-        update = new TodoUpdate(Optional.ofNullable("Some text to change"), Optional.ofNullable(null),
+        update = new TodoUpdateRequest(Optional.ofNullable("Some text to change"), Optional.ofNullable(null),
                 Optional.ofNullable(null));
         validTodoId = allTodos.get(2).id();
         numRowsAffected = dao.updateTodo(validTodoId, update);
         assertEquals(1, numRowsAffected);
 
         // next single value update
-        update = new TodoUpdate(Optional.ofNullable(null), Optional.ofNullable(true),
+        update = new TodoUpdateRequest(Optional.ofNullable(null), Optional.ofNullable(true),
                 Optional.ofNullable(null));
         validTodoId = allTodos.get(4).id();
         numRowsAffected = dao.updateTodo(validTodoId, update);
         assertEquals(1, numRowsAffected);
 
         // Test all potential changes at once
-        update = new TodoUpdate(Optional.ofNullable("Some more text to change"), Optional.ofNullable(true),
+        update = new TodoUpdateRequest(Optional.ofNullable("Some more text to change"), Optional.ofNullable(true),
                 Optional.ofNullable(33));
         validTodoId = allTodos.get(8).id();
         numRowsAffected = dao.updateTodo(validTodoId, update);
@@ -102,10 +106,34 @@ class TodoDaoTest {
 
     @Test
     void updateTodo_failure_invalidTodoId() {
-        TodoUpdate update = new TodoUpdate(Optional.ofNullable("Test"), Optional.ofNullable(true),
+        TodoUpdateRequest update = new TodoUpdateRequest(Optional.ofNullable("Test"), Optional.ofNullable(true),
                 Optional.ofNullable(44));
         int numRowsAffected = dao.updateTodo(INVALID_TODO_ID, update);
         assertEquals(0, numRowsAffected);
+    }
+
+    @Test
+    @Order(3) // Ensure this runs before any deletion tests
+    void updateTodos_success() {
+        List<Todo> allTodos = dao.getTodos(VALID_USER_ID);
+        List<BulkTodoUpdateRequest> updates = allTodos.stream().map(todo -> {
+            return new BulkTodoUpdateRequest(todo.id(), todo.position() + 1);
+        }).toList();
+
+        assertEquals(allTodos.size(), dao.updateTodos(updates));
+    }
+
+    @Test
+    void updateTodos_failure() {
+        assertEquals(0, dao.updateTodos(new ArrayList<>()));
+
+        List<Todo> allTodos = dao.getTodos(VALID_USER_ID);
+        List<BulkTodoUpdateRequest> updates = allTodos.stream().map(todo -> {
+            // Use invalid id for each update
+            return new BulkTodoUpdateRequest(INVALID_TODO_ID, todo.position() + 1);
+        }).toList();
+
+        assertEquals(0, dao.updateTodos(updates));
     }
 
     @Test
@@ -122,5 +150,35 @@ class TodoDaoTest {
         assertEquals(0, dao.deleteTodo(VALID_USER_ID, INVALID_TODO_ID));
         assertEquals(0, dao.deleteTodo(INVALID_USER_ID, validTodoId));
         assertEquals(0, dao.deleteTodo(INVALID_USER_ID, INVALID_TODO_ID));
+    }
+
+    @Test
+    void deleteTodos_success() {
+        List<Todo> allTodos = dao.getTodos(VALID_USER_ID);
+        List<UUID> deletions = allTodos.stream().filter(Todo::completed).map(Todo::id).toList();
+        int deleteCount = dao.deleteMultipleTodos(deletions);
+        assertEquals(deletions.size(), deleteCount);
+
+        // Fetch again to ensure they're missing
+        int originalSize = allTodos.size();
+        allTodos = dao.getTodos(VALID_USER_ID);
+        assertEquals(allTodos.size(), originalSize - deleteCount);
+    }
+
+    @Test
+    void deleteTodos_failure() {
+        assertEquals(0, dao.deleteMultipleTodos(new ArrayList<>()));
+
+        List<Todo> allTodos = dao.getTodos(VALID_USER_ID);
+
+        // Change the id of each to ensure they won't exist
+        String update = "aaaa";
+        List<UUID> deletions = allTodos.stream().filter(todo -> todo.position() < 5).map(todo -> {
+            String current = todo.id().toString();
+            return UUID
+                    .fromString(current.replace(current.subSequence(current.length() - 4, current.length()), update));
+        }).toList();
+
+        assertEquals(0, dao.deleteMultipleTodos(deletions));
     }
 }
