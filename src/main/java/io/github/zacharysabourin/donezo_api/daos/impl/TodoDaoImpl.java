@@ -120,6 +120,10 @@ public class TodoDaoImpl implements TodoDao {
 
     @Override
     public int deleteMultipleTodos(List<UUID> deletions) {
+        if (deletions.isEmpty()) {
+            LOGGER.info("No deletions to make. List size 0");
+            return 0;
+        }
         String sqlFirstHalf = "delete from todos where id in(";
 
         // Ensure same number of bind parameters as UUIDs

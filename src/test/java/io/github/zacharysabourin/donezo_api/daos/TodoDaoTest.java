@@ -125,8 +125,7 @@ class TodoDaoTest {
 
     @Test
     void updateTodos_failure() {
-        int numRowsAffected = dao.updateTodos(new ArrayList<>());
-        assertEquals(0, numRowsAffected);
+        assertEquals(0, dao.updateTodos(new ArrayList<>()));
 
         List<Todo> allTodos = dao.getTodos(VALID_USER_ID);
         List<BulkTodoUpdateRequest> updates = allTodos.stream().map(todo -> {
@@ -168,6 +167,8 @@ class TodoDaoTest {
 
     @Test
     void deleteTodos_failure() {
+        assertEquals(0, dao.deleteMultipleTodos(new ArrayList<>()));
+
         List<Todo> allTodos = dao.getTodos(VALID_USER_ID);
 
         // Change the id of each to ensure they won't exist
