@@ -66,7 +66,7 @@ public class TodoController {
      * @throws InternalServerErrorException Exception thrown if the new todo is not
      *                                      successfully created.
      */
-    @PostMapping({ "/{userId}", "/{userId}/" })
+    @PostMapping({ "/", "" })
     public Todo createTodo(@RequestBody TodoRequest request) throws InternalServerErrorException {
         LOGGER.info("Creating new Todo with values: '{}'", request);
         Optional<Todo> createdTodo = todoService.createNewTodo(request);

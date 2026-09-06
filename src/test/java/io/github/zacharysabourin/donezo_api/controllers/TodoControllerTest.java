@@ -88,7 +88,7 @@ class TodoControllerTest {
 	void createTodo_success() {
 		TodoRequest clientBody = new TodoRequest(VALID_USER_ID, "test task", false, 0);
 
-		client.post().uri(BASE_URL + VALID_USER_ID.toString())
+		client.post().uri(BASE_URL)
 				.accept(MediaType.APPLICATION_JSON)
 				.body(clientBody)
 				.exchange()
