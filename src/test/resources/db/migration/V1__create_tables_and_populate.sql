@@ -1,7 +1,7 @@
 -- Users table
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    email varchar(255) UNIQUE NOT NULL,
+    username varchar(40) UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT NOW()
 );
@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS todos (
 CREATE INDEX idx_todos_user_position ON todos(user_id, position);
 
 -- Create test user
-INSERT INTO users (id, email, password_hash) VALUES ('26248245-7afd-42b5-a65b-3e21ea693ce2', 'test@test.com', 'asdfasdf12345678');
+INSERT INTO users (id, username, password_hash) VALUES ('26248245-7afd-42b5-a65b-3e21ea693ce2', 'testmctest', 'asdfasdf12345678');
 
 -- Create test todos
 INSERT INTO todos (user_id, text, position, completed) VALUES ('26248245-7afd-42b5-a65b-3e21ea693ce2', 'this is a todo', 0, true);

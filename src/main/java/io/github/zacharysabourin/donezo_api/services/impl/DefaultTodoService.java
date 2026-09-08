@@ -27,7 +27,7 @@ public class DefaultTodoService implements TodoService {
 
     @Override
     public List<Todo> getAllTodos(UUID userId) {
-        List<Todo> results = dao.getTodos(userId);
+        List<Todo> results = dao.getTodosByUserId(userId);
         if (results == null || results.isEmpty()) {
             LOGGER.warn("No Todos for user {}", userId);
             return Collections.emptyList();

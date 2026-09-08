@@ -19,7 +19,7 @@ public interface TodoDao {
      * @param userId The given user id.
      * @return A List containing all Todos for a given user. May be empty.
      */
-    public List<Todo> getTodos(UUID userId);
+    public List<Todo> getTodosByUserId(UUID userId);
 
     /**
      * Persists a new Todo entity given the TodoRequest object.

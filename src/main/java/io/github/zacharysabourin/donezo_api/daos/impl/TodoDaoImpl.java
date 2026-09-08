@@ -30,7 +30,7 @@ public class TodoDaoImpl implements TodoDao {
     }
 
     @Override
-    public List<Todo> getTodos(UUID userId) {
+    public List<Todo> getTodosByUserId(UUID userId) {
         String sql = "select * from todos where user_id = ?";
         LOGGER.info("Querying DB: '{}' for userId: '{}'", sql, userId);
         return jdbcTemplate.query(sql, this::getDefaultRowMapper, userId);
