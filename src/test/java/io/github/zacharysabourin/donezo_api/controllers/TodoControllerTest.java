@@ -86,7 +86,7 @@ class TodoControllerTest {
 
 	@Test
 	void createTodo_success() {
-		TodoRequest clientBody = new TodoRequest(VALID_USER_ID, "test task", false, 0);
+		TodoRequest clientBody = new TodoRequest("test task", false, 0);
 
 		client.post().uri(BASE_URL)
 				.accept(MediaType.APPLICATION_JSON)
@@ -100,7 +100,7 @@ class TodoControllerTest {
 					assertNotNull(created);
 					assertNotNull(created.id());
 					assertNotNull(created.createdAt());
-					assertEquals(clientBody.userId(), created.userId());
+					assertEquals(VALID_USER_ID, created.userId());
 					assertEquals(clientBody.text(), created.text());
 					assertEquals(clientBody.completed(), created.completed());
 					assertEquals(clientBody.position(), created.position());

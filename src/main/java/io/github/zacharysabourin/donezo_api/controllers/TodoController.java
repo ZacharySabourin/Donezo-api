@@ -7,9 +7,8 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -17,7 +16,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import io.github.zacharysabourin.donezo_api.dtos.Todo;
@@ -27,6 +25,7 @@ import io.github.zacharysabourin.donezo_api.exceptions.models.NotFoundException;
 import io.github.zacharysabourin.donezo_api.models.BulkTodoUpdateRequest;
 import io.github.zacharysabourin.donezo_api.models.TodoRequest;
 import io.github.zacharysabourin.donezo_api.models.TodoUpdateRequest;
+import io.github.zacharysabourin.donezo_api.models.UserDetailsImpl;
 import io.github.zacharysabourin.donezo_api.services.TodoService;
 
 /**
@@ -50,10 +49,10 @@ public class TodoController {
      * @param userId The given user id.
      * @return A List of all todos bound to the given user.
      */
-    @GetMapping({ "/{userId}", "/{userId}/" })
-    public List<Todo> getTodos(@PathVariable UUID userId) {
-        LOGGER.info("Fetching all Todos for user: '{}'", userId);
-        return todoService.getAllTodos(userId);
+    @GetMapping({ "/", "" })
+    public List<Todo> getTodos(@AuthenticationPrincipal UserDetailsImpl currentUser) {
+        LOGGER.info("Fetching all Todos for user: '{}'", currentUser.getUsername());
+        return todoService.getAllTodos(currentUser.getId());
     }
 
     /**
@@ -67,9 +66,10 @@ public class TodoController {
      *                                      successfully created.
      */
     @PostMapping({ "/", "" })
-    public Todo createTodo(@RequestBody TodoRequest request) throws InternalServerErrorException {
-        LOGGER.info("Creating new Todo with values: '{}'", request);
-        Optional<Todo> createdTodo = todoService.createNewTodo(request);
+    public Todo createTodo(@AuthenticationPrincipal UserDetailsImpl currentUser, @RequestBody TodoRequest request)
+            throws InternalServerErrorException {
+        LOGGER.info("Creating new Todo for user: {}, with values: '{}'", currentUser.getUsername(), request);
+        Optional<Todo> createdTodo = todoService.createNewTodo(currentUser.getId(), request);
         if (createdTodo.isEmpty()) {
             throw new InternalServerErrorException("Error creating new Todo", HttpMethod.POST);
         }
@@ -90,19 +90,20 @@ public class TodoController {
      * @throws BadRequestException Exception thrown if not valid updates were
      *                             provided.
      */
-    @PatchMapping({ "/{id}", "/{id}/" })
-    public ResponseEntity<HttpStatusCode> updateTodo(@PathVariable UUID id, @RequestBody TodoUpdateRequest updates)
+    @PatchMapping({ "/{todoId}", "/{todoId}/" })
+    public ResponseEntity<Void> updateTodo(@PathVariable UUID todoId, @RequestBody TodoUpdateRequest updates,
+            @AuthenticationPrincipal UserDetailsImpl currentUser)
             throws NotFoundException, BadRequestException {
 
         if (updates.completed().isEmpty() && updates.text().isEmpty() && updates.position().isEmpty()) {
             throw new BadRequestException("No valid updates provided", HttpMethod.PATCH);
         }
 
-        LOGGER.info("Updating Todo: '{}' with values: '{}'", id, updates);
-        if (!todoService.updateTodo(id, updates)) {
-            throw new NotFoundException("No Todo with id: '" + id + "'", HttpMethod.PATCH);
+        LOGGER.info("Updating Todo: '{}' with values: '{}'", todoId, updates);
+        if (!todoService.updateTodo(currentUser.getId(), todoId, updates)) {
+            throw new NotFoundException("No Todo with id: '" + todoId + "'", HttpMethod.PATCH);
         }
-        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        return ResponseEntity.noContent().build();
     }
 
     /**
@@ -120,41 +121,42 @@ public class TodoController {
      *                                      successful.
      */
     @PatchMapping({ "", "/" })
-    public ResponseEntity<HttpStatusCode> updateTodos(@RequestBody List<BulkTodoUpdateRequest> updates)
+    public ResponseEntity<Void> updateTodos(@RequestBody List<BulkTodoUpdateRequest> updates,
+            @AuthenticationPrincipal UserDetailsImpl currentUser)
             throws InternalServerErrorException, BadRequestException {
 
         if (updates.isEmpty()) {
             throw new BadRequestException("No updates provided", HttpMethod.PATCH);
         }
 
-        LOGGER.info("Updating Todos with updates: '{}'", updates);
-        if (!todoService.updateTodos(updates)) {
+        LOGGER.info("Updating Todos for user: {}, with updates: '{}'", currentUser.getUsername(), updates);
+        if (!todoService.updateTodos(currentUser.getId(), updates)) {
             throw new InternalServerErrorException("Failed to update all Todos", HttpMethod.PATCH);
         }
-        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        return ResponseEntity.noContent().build();
     }
 
     /**
      * Deletes a specific Todo given the user and Todo id. <code>DELETE</code>
      * request.
      * 
-     * @param userId The given user id.
      * @param todoId The given Todo id to delete.
      * @return A <code>204 No Content</code> if the deletion was successful. A
      *         <code>404 Not Found</code> if the id was not a valid Todo. A
      *         <code>400 Bad Request</code> if no todId is provided.
      * @throws NotFoundException Exception thrown if the todo could not be found.
      */
-    @DeleteMapping({ "/{userId}", "/{userId}/" })
-    public ResponseEntity<HttpStatusCode> deleteTodo(@PathVariable UUID userId, @RequestParam UUID todoId)
+    @DeleteMapping({ "/{todoId}", "/{todoId}/" })
+    public ResponseEntity<Void> deleteTodo(@PathVariable UUID todoId,
+            @AuthenticationPrincipal UserDetailsImpl currentUser)
             throws NotFoundException {
 
-        LOGGER.info("Deleting Todo '{}'' for user: '{}'", todoId, userId);
-        if (!todoService.deleteTodo(userId, todoId)) {
+        LOGGER.info("Deleting Todo '{}'", todoId);
+        if (!todoService.deleteTodo(currentUser.getId(), todoId)) {
             throw new NotFoundException("No Todo with id: '" + todoId + "'", HttpMethod.DELETE);
         }
 
-        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        return ResponseEntity.noContent().build();
     }
 
     /**
@@ -169,13 +171,14 @@ public class TodoController {
      *                                      be deleted.
      */
     @DeleteMapping({ "", "/" })
-    public ResponseEntity<HttpStatusCode> deleteMultipleTodos(@RequestBody List<Todo> deletions)
+    public ResponseEntity<Void> deleteMultipleTodos(@RequestBody List<Todo> deletions,
+            @AuthenticationPrincipal UserDetailsImpl currentUser)
             throws InternalServerErrorException {
 
         LOGGER.info("Deleting multiple Todos: '{}'", deletions);
-        if (!todoService.deleteMultipleTodos(deletions)) {
+        if (!todoService.deleteMultipleTodos(currentUser.getId(), deletions)) {
             throw new InternalServerErrorException("Failed to delete all Todos", HttpMethod.DELETE);
         }
-        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        return ResponseEntity.noContent().build();
     }
 }

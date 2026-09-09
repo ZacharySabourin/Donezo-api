@@ -31,7 +31,7 @@ public interface TodoService {
      * @return An {@link Optional} that may or may not contain the newly persisted
      *         entity.
      */
-    public Optional<Todo> createNewTodo(TodoRequest request);
+    public Optional<Todo> createNewTodo(UUID userId, TodoRequest request);
 
     /**
      * Updates the Todo that matches the given id using the provided update entity.
@@ -41,7 +41,7 @@ public interface TodoService {
      * @param updates All values to update.
      * @return True if successful, false if not.
      */
-    public boolean updateTodo(UUID todoId, TodoUpdateRequest updates);
+    public boolean updateTodo(UUID userId, UUID todoId, TodoUpdateRequest updates);
 
     /**
      * Updates the Todos that matches the given ids using the provided list.
@@ -50,7 +50,7 @@ public interface TodoService {
      * @param updates All ids and values to update.
      * @return True if successful, false if not.
      */
-    public boolean updateTodos(List<BulkTodoUpdateRequest> updates);
+    public boolean updateTodos(UUID userId, List<BulkTodoUpdateRequest> updates);
 
     /**
      * Deletes the Todo that matches the given user id and Todo id.
@@ -67,5 +67,5 @@ public interface TodoService {
      * @param deletions The list of Todos to delete.
      * @return True if successful, false if not.
      */
-    public boolean deleteMultipleTodos(List<Todo> deletions);
+    public boolean deleteMultipleTodos(UUID userId, List<Todo> deletions);
 }

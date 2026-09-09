@@ -27,7 +27,7 @@ public class DefaultTodoService implements TodoService {
 
     @Override
     public List<Todo> getAllTodos(UUID userId) {
-        List<Todo> results = dao.getTodos(userId);
+        List<Todo> results = dao.getTodosByUserId(userId);
         if (results == null || results.isEmpty()) {
             LOGGER.warn("No Todos for user {}", userId);
             return Collections.emptyList();
@@ -37,17 +37,17 @@ public class DefaultTodoService implements TodoService {
     }
 
     @Override
-    public Optional<Todo> createNewTodo(TodoRequest request) {
-        Optional<Todo> createdTodo = Optional.ofNullable(dao.createTodo(request));
+    public Optional<Todo> createNewTodo(UUID userId, TodoRequest request) {
+        Optional<Todo> createdTodo = Optional.ofNullable(dao.createTodo(userId, request));
         if (createdTodo.isEmpty()) {
-            LOGGER.error("Failed to create new Todo for user: '{}'", request.userId());
+            LOGGER.error("Failed to create new Todo for user: '{}'", userId);
         }
         return createdTodo;
     }
 
     @Override
-    public boolean updateTodo(UUID todoId, TodoUpdateRequest updates) {
-        int numRowsAffected = dao.updateTodo(todoId, updates);
+    public boolean updateTodo(UUID userId, UUID todoId, TodoUpdateRequest updates) {
+        int numRowsAffected = dao.updateTodo(userId, todoId, updates);
         if (numRowsAffected == 0) {
             LOGGER.error("Failed to Update any data using id: '{}' and values: '{}'", todoId, updates);
             return false;
@@ -57,8 +57,8 @@ public class DefaultTodoService implements TodoService {
     }
 
     @Override
-    public boolean updateTodos(List<BulkTodoUpdateRequest> updates) {
-        int numRowsAffected = dao.updateTodos(updates);
+    public boolean updateTodos(UUID userId, List<BulkTodoUpdateRequest> updates) {
+        int numRowsAffected = dao.updateTodos(userId, updates);
         int difference = updates.size() - numRowsAffected;
         if (difference != 0) {
             LOGGER.error("Failed to Update some/all values, {} remaining", difference);
@@ -80,12 +80,12 @@ public class DefaultTodoService implements TodoService {
     }
 
     @Override
-    public boolean deleteMultipleTodos(List<Todo> deletions) {
+    public boolean deleteMultipleTodos(UUID userId, List<Todo> deletions) {
 
         // Extract all ids into a list for deletion
         List<UUID> uuids = deletions.stream().map(Todo::id).toList();
 
-        int numRowsDeleted = dao.deleteMultipleTodos(uuids);
+        int numRowsDeleted = dao.deleteMultipleTodos(userId, uuids);
         int difference = uuids.size() - numRowsDeleted;
         if (difference != 0) {
             LOGGER.error("Failed to delete some/all data, {} remaining", difference);

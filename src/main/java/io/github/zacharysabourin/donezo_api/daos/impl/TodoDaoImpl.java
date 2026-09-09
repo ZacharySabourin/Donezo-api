@@ -30,20 +30,20 @@ public class TodoDaoImpl implements TodoDao {
     }
 
     @Override
-    public List<Todo> getTodos(UUID userId) {
+    public List<Todo> getTodosByUserId(UUID userId) {
         String sql = "select * from todos where user_id = ?";
         LOGGER.info("Querying DB: '{}' for userId: '{}'", sql, userId);
         return jdbcTemplate.query(sql, this::getDefaultRowMapper, userId);
     }
 
     @Override
-    public Todo createTodo(TodoRequest request) {
+    public Todo createTodo(UUID userId, TodoRequest request) {
         String sql = "insert into todos (user_id, text, completed, position) values (?, ?, ?, ?) RETURNING id";
-        LOGGER.info("Updating DB: '{}' for userId: '{}'", sql, request.userId());
+        LOGGER.info("Updating DB: '{}' for userId: '{}'", sql, userId);
 
         // Using a RETURNING query mapped to a UUID to allow proper selecting
         UUID key = jdbcTemplate.queryForObject(sql, UUID.class,
-                request.userId(),
+                userId,
                 request.text(),
                 request.completed(),
                 request.position());
@@ -55,9 +55,9 @@ public class TodoDaoImpl implements TodoDao {
     }
 
     @Override
-    public int updateTodo(UUID todoId, TodoUpdateRequest updates) {
+    public int updateTodo(UUID userId, UUID todoId, TodoUpdateRequest updates) {
         String sqlFirstHalf = "update todos set ";
-        String sqlSecondHalf = " where id = ?";
+        String sqlSecondHalf = " where id = ? and user_id = ?";
         List<Object> params = new ArrayList<>();
 
         // Add each value if present in the object and construct the query
@@ -75,6 +75,7 @@ public class TodoDaoImpl implements TodoDao {
         }
 
         params.add(todoId);
+        params.add(userId);
 
         // Trim the last 2 bytes of the first half and combine both strings
         String sqlFinal = sqlFirstHalf.substring(0, sqlFirstHalf.length() - 2).concat(sqlSecondHalf);
@@ -86,21 +87,23 @@ public class TodoDaoImpl implements TodoDao {
     }
 
     @Override
-    public int updateTodos(List<BulkTodoUpdateRequest> updates) {
+    public int updateTodos(UUID userId, List<BulkTodoUpdateRequest> updates) {
         if (updates.isEmpty()) {
             LOGGER.info("No updates to make. List size 0");
             return 0;
         }
         String sqlFirstHalf = "update todos as t set position = v.new_position from (values ";
-        String sqlSecondHalf = ") as v(id, new_position) where t.id = v.id::uuid";
+        String sqlSecondHalf = ") as v(id, new_position) where t.id = v.id::uuid and t.user_id = ?";
 
-        List<Object> params = new ArrayList<>(updates.size() * 2);
+        List<Object> params = new ArrayList<>((updates.size() * 2) + 1);
 
         for (BulkTodoUpdateRequest update : updates) {
             sqlFirstHalf = sqlFirstHalf.concat("(?, ?), ");
             params.add(update.id());
             params.add(update.position());
         }
+
+        params.add(userId);
 
         String sqlFinal = sqlFirstHalf.substring(0, sqlFirstHalf.length() - 2).concat(sqlSecondHalf);
         LOGGER.info("Querying DB: '{}' with values: '{}'", sqlFinal, params);
@@ -119,22 +122,27 @@ public class TodoDaoImpl implements TodoDao {
     }
 
     @Override
-    public int deleteMultipleTodos(List<UUID> deletions) {
+    public int deleteMultipleTodos(UUID userId, List<UUID> deletions) {
         if (deletions.isEmpty()) {
             LOGGER.info("No deletions to make. List size 0");
             return 0;
         }
         String sqlFirstHalf = "delete from todos where id in(";
+        String sqlSecondHalf = ") and user_id = ?";
 
-        // Ensure same number of bind parameters as UUIDs
-        for (int i = 0; i < deletions.size(); i++) {
+        List<Object> params = new ArrayList<>(deletions.size() + 1);
+
+        for (UUID id : deletions) {
             sqlFirstHalf = sqlFirstHalf.concat("?, ");
+            params.add(id);
         }
 
-        // Trim the last 2 bytes of the first half and combine both strings
-        String sqlFinal = sqlFirstHalf.substring(0, sqlFirstHalf.length() - 2).concat(")");
+        params.add(userId);
 
-        LOGGER.info("Querying DB: '{}' with values: '{}'", sqlFinal, deletions);
+        // Trim the last 2 bytes of the first half and combine both strings
+        String sqlFinal = sqlFirstHalf.substring(0, sqlFirstHalf.length() - 2).concat(sqlSecondHalf);
+
+        LOGGER.info("Querying DB: '{}' with values: '{}'", sqlFinal, params);
         int numRowsAffected = jdbcTemplate.update(sqlFinal, deletions.toArray());
         LOGGER.info("Updated {} rows", numRowsAffected);
         return numRowsAffected;

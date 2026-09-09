@@ -19,7 +19,7 @@ public interface TodoDao {
      * @param userId The given user id.
      * @return A List containing all Todos for a given user. May be empty.
      */
-    public List<Todo> getTodos(UUID userId);
+    public List<Todo> getTodosByUserId(UUID userId);
 
     /**
      * Persists a new Todo entity given the TodoRequest object.
@@ -27,7 +27,7 @@ public interface TodoDao {
      * @param request The incoming TodoRequest.
      * @return Returns the newly persisted Todo once saved.
      */
-    public Todo createTodo(TodoRequest request);
+    public Todo createTodo(UUID userId, TodoRequest request);
 
     /**
      * Updates a specific Todo entity using the provided update values.
@@ -36,7 +36,7 @@ public interface TodoDao {
      * @param updates The column names and new values to persist in the DB.
      * @return The number of rows affected by the update. Should be 1.
      */
-    public int updateTodo(UUID todoId, TodoUpdateRequest updates);
+    public int updateTodo(UUID userId, UUID todoId, TodoUpdateRequest updates);
 
     /**
      * Updates Todo entities using the provided update values.
@@ -45,7 +45,7 @@ public interface TodoDao {
      * @return The number of rows affected by the update. Should be the same length
      *         as the incoming list.
      */
-    public int updateTodos(List<BulkTodoUpdateRequest> updates);
+    public int updateTodos(UUID userId, List<BulkTodoUpdateRequest> updates);
 
     /**
      * Deletes a specific Todo given the user and Todo ids.
@@ -63,5 +63,5 @@ public interface TodoDao {
      * @return The number of rows affected by the update. Should be the same length
      *         as the incoming list.
      */
-    public int deleteMultipleTodos(List<UUID> deletions);
+    public int deleteMultipleTodos(UUID userId, List<UUID> deletions);
 }
