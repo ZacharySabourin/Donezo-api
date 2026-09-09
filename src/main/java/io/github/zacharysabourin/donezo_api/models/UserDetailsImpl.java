@@ -49,6 +49,10 @@ public class UserDetailsImpl implements UserDetails {
         return authorities;
     }
 
+    public UUID getId() {
+        return id;
+    }
+
     @Override
     public @Nullable String getPassword() {
         return password;

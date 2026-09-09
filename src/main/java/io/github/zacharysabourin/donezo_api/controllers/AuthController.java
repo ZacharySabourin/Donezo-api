@@ -1,6 +1,7 @@
 package io.github.zacharysabourin.donezo_api.controllers;
 
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import io.github.zacharysabourin.donezo_api.daos.UserDao;
+import io.github.zacharysabourin.donezo_api.exceptions.models.BadRequestException;
 import io.github.zacharysabourin.donezo_api.models.LoginRequest;
 import io.github.zacharysabourin.donezo_api.models.SignupRequest;
 import io.github.zacharysabourin.donezo_api.models.UserDetailsImpl;
@@ -38,18 +40,19 @@ public class AuthController {
 	}
 
 	@PostMapping("/signup")
-	public ResponseEntity<?> registerUser(@Valid @RequestBody SignupRequest signUpRequest) {
+	public ResponseEntity<Void> registerUser(@Valid @RequestBody SignupRequest signUpRequest)
+			throws BadRequestException {
 		if (dao.existsByUsername(signUpRequest.username())) {
-			return ResponseEntity.badRequest().body("Error: Username is already taken!");
+			throw new BadRequestException("Error: Username is already taken!", HttpMethod.POST);
 		}
 
 		dao.createNewUser(signUpRequest.username(), encoder.encode(signUpRequest.password()));
 
-		return ResponseEntity.ok("User registered successfully!");
+		return ResponseEntity.ok().build();
 	}
 
 	@PostMapping("/login")
-	public ResponseEntity<?> authenticateUser(@RequestBody @Valid LoginRequest loginRequest) {
+	public ResponseEntity<Void> authenticateUser(@RequestBody @Valid LoginRequest loginRequest) {
 		Authentication authentication = authenticationManager.authenticate(
 				new UsernamePasswordAuthenticationToken(loginRequest.username(), loginRequest.password()));
 
@@ -58,16 +61,12 @@ public class AuthController {
 
 		ResponseCookie jwtCookie = jwtUtils.generateJwtCookie(userDetails);
 
-		return ResponseEntity.ok()
-				.header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
-				.body("User signed in successfully!");
+		return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, jwtCookie.toString()).build();
 	}
 
 	@PostMapping("/logout")
-	public ResponseEntity<?> logoutUser() {
+	public ResponseEntity<Void> logoutUser() {
 		ResponseCookie cookie = jwtUtils.getCleanJwtCookie();
-		return ResponseEntity.ok()
-				.header(HttpHeaders.SET_COOKIE, cookie.toString())
-				.body("You've been signed out!");
+		return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, cookie.toString()).build();
 	}
 }
