@@ -1,5 +1,7 @@
 package io.github.zacharysabourin.donezo_api.controllers;
 
+import java.util.Map;
+
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseCookie;
@@ -7,8 +9,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -19,6 +23,7 @@ import io.github.zacharysabourin.donezo_api.exceptions.models.BadRequestExceptio
 import io.github.zacharysabourin.donezo_api.models.LoginRequest;
 import io.github.zacharysabourin.donezo_api.models.SignupRequest;
 import io.github.zacharysabourin.donezo_api.models.UserDetailsImpl;
+import io.github.zacharysabourin.donezo_api.models.UserProfile;
 import io.github.zacharysabourin.donezo_api.utils.JwtUtils;
 import jakarta.validation.Valid;
 
@@ -37,6 +42,11 @@ public class AuthController {
 		this.jwtUtils = jwtUtils;
 		this.dao = dao;
 		this.encoder = encoder;
+	}
+
+	@GetMapping("/profile")
+	public ResponseEntity<UserProfile> getUser(@AuthenticationPrincipal UserDetailsImpl currentUser) {
+		return ResponseEntity.ok(new UserProfile(currentUser.getId(), currentUser.getUsername()));
 	}
 
 	@PostMapping("/signup")
