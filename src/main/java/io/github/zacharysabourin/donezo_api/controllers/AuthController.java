@@ -62,7 +62,7 @@ public class AuthController {
 	}
 
 	@PostMapping("/login")
-	public ResponseEntity<Void> authenticateUser(@RequestBody @Valid LoginRequest loginRequest) {
+	public ResponseEntity<UserProfile> authenticateUser(@RequestBody @Valid LoginRequest loginRequest) {
 		Authentication authentication = authenticationManager.authenticate(
 				new UsernamePasswordAuthenticationToken(loginRequest.username(), loginRequest.password()));
 
@@ -71,7 +71,8 @@ public class AuthController {
 
 		ResponseCookie jwtCookie = jwtUtils.generateJwtCookie(userDetails);
 
-		return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, jwtCookie.toString()).build();
+		return ResponseEntity.ok().header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
+				.body(new UserProfile(userDetails.getId(), userDetails.getUsername()));
 	}
 
 	@PostMapping("/logout")

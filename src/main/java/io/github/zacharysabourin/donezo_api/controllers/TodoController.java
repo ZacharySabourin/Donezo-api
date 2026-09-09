@@ -120,7 +120,7 @@ public class TodoController {
      * @throws InternalServerErrorException Exception thrown if the updates weren't
      *                                      successful.
      */
-    @PatchMapping({ "", "/" })
+    @PatchMapping({ "/", "" })
     public ResponseEntity<Void> updateTodos(@RequestBody List<BulkTodoUpdateRequest> updates,
             @AuthenticationPrincipal UserDetailsImpl currentUser)
             throws InternalServerErrorException, BadRequestException {
@@ -170,7 +170,7 @@ public class TodoController {
      * @throws InternalServerErrorException Exception thrown if the todos could not
      *                                      be deleted.
      */
-    @DeleteMapping({ "", "/" })
+    @DeleteMapping({ "/", "" })
     public ResponseEntity<Void> deleteMultipleTodos(@RequestBody List<Todo> deletions,
             @AuthenticationPrincipal UserDetailsImpl currentUser)
             throws InternalServerErrorException {

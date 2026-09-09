@@ -143,7 +143,7 @@ public class TodoDaoImpl implements TodoDao {
         String sqlFinal = sqlFirstHalf.substring(0, sqlFirstHalf.length() - 2).concat(sqlSecondHalf);
 
         LOGGER.info("Querying DB: '{}' with values: '{}'", sqlFinal, params);
-        int numRowsAffected = jdbcTemplate.update(sqlFinal, deletions.toArray());
+        int numRowsAffected = jdbcTemplate.update(sqlFinal, params.toArray());
         LOGGER.info("Updated {} rows", numRowsAffected);
         return numRowsAffected;
     }
