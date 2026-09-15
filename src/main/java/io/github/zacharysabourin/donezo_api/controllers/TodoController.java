@@ -1,7 +1,7 @@
 package io.github.zacharysabourin.donezo_api.controllers;
 
+import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 import org.slf4j.Logger;
@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import io.github.zacharysabourin.donezo_api.daos.TodoDao;
 import io.github.zacharysabourin.donezo_api.dtos.Todo;
 import io.github.zacharysabourin.donezo_api.exceptions.models.BadRequestException;
 import io.github.zacharysabourin.donezo_api.exceptions.models.InternalServerErrorException;
@@ -26,158 +27,158 @@ import io.github.zacharysabourin.donezo_api.models.BulkTodoUpdateRequest;
 import io.github.zacharysabourin.donezo_api.models.TodoRequest;
 import io.github.zacharysabourin.donezo_api.models.TodoUpdateRequest;
 import io.github.zacharysabourin.donezo_api.models.UserDetailsImpl;
-import io.github.zacharysabourin.donezo_api.services.TodoService;
 
 /**
- * Main entry point for this application. Handles all Todo entity read, write,
- * update and delete requests.
+ * REST controller for managing {@link Todo} entity read, write, update, and
+ * delete requests.
  */
 @RestController
 @RequestMapping("/todos")
 public class TodoController {
     private static final Logger LOGGER = LoggerFactory.getLogger(TodoController.class);
 
-    private final TodoService todoService;
+    private final TodoDao dao;
 
-    public TodoController(TodoService todoService) {
-        this.todoService = todoService;
+    public TodoController(TodoDao dao) {
+        this.dao = dao;
     }
 
     /**
-     * Returns all Todo entities given the user id. <code>GET</code> request.
-     * 
-     * @param userId The given user id.
-     * @return A List of all todos bound to the given user.
+     * Retrieves all todo items belonging to the currently authenticated user.
+     *
+     * @param currentUser the authenticated user principal
+     * @return a list of todos owned by the user, or an empty list if none exist
      */
     @GetMapping({ "/", "" })
     public List<Todo> getTodos(@AuthenticationPrincipal UserDetailsImpl currentUser) {
         LOGGER.info("Fetching all Todos for user: '{}'", currentUser.getUsername());
-        return todoService.getAllTodos(currentUser.getId());
+
+        List<Todo> results = dao.getTodosByUserId(currentUser.getId());
+        if (results == null || results.isEmpty()) {
+            LOGGER.warn("No Todos for user {}", currentUser.getUsername());
+            return Collections.emptyList();
+        }
+
+        return results;
+
     }
 
     /**
-     * Given the user id, will create a Todo using the values in the body of the
-     * request. Will throw an <code>InternalServerErrorException</code> if there is
-     * a failure to do so. <code>POST</code> request.
-     * 
-     * @param todo The given Todo to create.
-     * @return The Todo entity that was persisted in the data layer.
-     * @throws InternalServerErrorException Exception thrown if the new todo is not
-     *                                      successfully created.
+     * Creates a new todo item for the currently authenticated user.
+     *
+     * @param currentUser the authenticated user principal
+     * @param request     the request body containing details for the new todo
+     * @return the newly created {@link Todo} entity
+     * @throws InternalServerErrorException if the todo cannot be persisted
      */
     @PostMapping({ "/", "" })
     public Todo createTodo(@AuthenticationPrincipal UserDetailsImpl currentUser, @RequestBody TodoRequest request)
             throws InternalServerErrorException {
         LOGGER.info("Creating new Todo for user: {}, with values: '{}'", currentUser.getUsername(), request);
-        Optional<Todo> createdTodo = todoService.createNewTodo(currentUser.getId(), request);
-        if (createdTodo.isEmpty()) {
-            throw new InternalServerErrorException("Error creating new Todo", HttpMethod.POST);
-        }
-
-        return createdTodo.get();
+        return dao.createTodo(currentUser.getId(), request)
+                .orElseThrow(() -> new InternalServerErrorException("Error creating new Todo", HttpMethod.POST));
     }
 
     /**
-     * Updates a specific Todo given the incoming TodoUpdateRequest request body.
-     * <code>PATCH</code> request.
-     * 
-     * @param id      The specific Todo to update.
-     * @param updates The entity used to update an existing Todo.
-     * @return A <code>204 No Content</code> if the update was successful. A
-     *         <code>404 Not Found</code> if the id was not a valid Todo. A
-     *         <code>400 Bad Request</code> if no valid values were provided
-     * @throws NotFoundException   Exception thrown if the todo could not be found.
-     * @throws BadRequestException Exception thrown if not valid updates were
-     *                             provided.
+     * Updates specific fields of an existing todo item.
+     *
+     * @param todoId      the unique identifier of the todo to update
+     * @param updates     the fields to update
+     * @param currentUser the authenticated user principal
+     * @return {@link ResponseEntity} with status {@code 204 No Content} on success
+     * @throws BadRequestException if no valid fields are provided for update
+     * @throws NotFoundException   if no todo matching the given ID exists for the
+     *                             user
      */
     @PatchMapping({ "/{todoId}", "/{todoId}/" })
     public ResponseEntity<Void> updateTodo(@PathVariable UUID todoId, @RequestBody TodoUpdateRequest updates,
-            @AuthenticationPrincipal UserDetailsImpl currentUser)
-            throws NotFoundException, BadRequestException {
+            @AuthenticationPrincipal UserDetailsImpl currentUser) throws NotFoundException, BadRequestException {
 
         if (updates.completed().isEmpty() && updates.text().isEmpty() && updates.position().isEmpty()) {
             throw new BadRequestException("No valid updates provided", HttpMethod.PATCH);
         }
-
         LOGGER.info("Updating Todo: '{}' with values: '{}'", todoId, updates);
-        if (!todoService.updateTodo(currentUser.getId(), todoId, updates)) {
+        int numRowsAffected = dao.updateTodo(currentUser.getId(), todoId, updates);
+        if (numRowsAffected == 0) {
             throw new NotFoundException("No Todo with id: '" + todoId + "'", HttpMethod.PATCH);
         }
+
         return ResponseEntity.noContent().build();
     }
 
     /**
-     * Updates any number of Todos given the incoming List of BulkTodoUpdateRequest
-     * in the request body. <code>PATCH</code> request.
-     * 
-     * @param updates The objects used to update existing Todos.
-     * @return A <code>204 No Content</code> if the update was successful. A
-     *         <code>500 Internal Server Error</code> if the updates were not
-     *         successful. A <code>400 Bad Request</code> if no valid values were
-     *         provided
-     * @throws BadRequestException          Exception thrown no valid updates
-     *                                      provided.
-     * @throws InternalServerErrorException Exception thrown if the updates weren't
-     *                                      successful.
+     * Updates multiple todo items in a single request.
+     *
+     * @param updates     the list of todo updates to apply
+     * @param currentUser the authenticated user principal
+     * @return {@link ResponseEntity} with status {@code 204 No Content} on success
+     * @throws BadRequestException if the updates list is null or empty
      */
     @PatchMapping({ "/", "" })
     public ResponseEntity<Void> updateTodos(@RequestBody List<BulkTodoUpdateRequest> updates,
-            @AuthenticationPrincipal UserDetailsImpl currentUser)
-            throws InternalServerErrorException, BadRequestException {
+            @AuthenticationPrincipal UserDetailsImpl currentUser) throws BadRequestException {
 
-        if (updates.isEmpty()) {
+        if (updates == null || updates.isEmpty()) {
             throw new BadRequestException("No updates provided", HttpMethod.PATCH);
         }
 
         LOGGER.info("Updating Todos for user: {}, with updates: '{}'", currentUser.getUsername(), updates);
-        if (!todoService.updateTodos(currentUser.getId(), updates)) {
-            throw new InternalServerErrorException("Failed to update all Todos", HttpMethod.PATCH);
+
+        int numRowsAffected = dao.updateTodos(currentUser.getId(), updates);
+        if (numRowsAffected < updates.size()) {
+            LOGGER.warn("Bulk delete mismatch. Expected: {}, Actual: {}", updates.size(), numRowsAffected);
+
         }
         return ResponseEntity.noContent().build();
+
     }
 
     /**
-     * Deletes a specific Todo given the user and Todo id. <code>DELETE</code>
-     * request.
-     * 
-     * @param todoId The given Todo id to delete.
-     * @return A <code>204 No Content</code> if the deletion was successful. A
-     *         <code>404 Not Found</code> if the id was not a valid Todo. A
-     *         <code>400 Bad Request</code> if no todId is provided.
-     * @throws NotFoundException Exception thrown if the todo could not be found.
+     * Deletes a specific todo item.
+     *
+     * @param todoId      the unique identifier of the todo to delete
+     * @param currentUser the authenticated user principal
+     * @return {@link ResponseEntity} with status {@code 204 No Content} on success
+     * @throws NotFoundException if no todo matching the given ID exists for the
+     *                           user
      */
     @DeleteMapping({ "/{todoId}", "/{todoId}/" })
     public ResponseEntity<Void> deleteTodo(@PathVariable UUID todoId,
-            @AuthenticationPrincipal UserDetailsImpl currentUser)
-            throws NotFoundException {
-
+            @AuthenticationPrincipal UserDetailsImpl currentUser) throws NotFoundException {
         LOGGER.info("Deleting Todo '{}'", todoId);
-        if (!todoService.deleteTodo(currentUser.getId(), todoId)) {
+        int numRowsDeleted = dao.deleteTodo(currentUser.getId(), todoId);
+        if (numRowsDeleted == 0) {
+            LOGGER.error("Failed to delete any data using id: '{}'", todoId);
             throw new NotFoundException("No Todo with id: '" + todoId + "'", HttpMethod.DELETE);
         }
-
         return ResponseEntity.noContent().build();
     }
 
     /**
-     * Deletes a list Todo entities given the body of the request.
-     * <code>DELETE</code> request.
-     * 
-     * @param deletions The list of Todos to delete
-     * @return A <code>204 No Content</code> if the deletion was successful. A
-     *         <code>404 Not Found</code> if no Todos were deleted. A
-     *         <code>400 Bad Request</code> if no body is provided.
-     * @throws InternalServerErrorException Exception thrown if the todos could not
-     *                                      be deleted.
+     * Deletes multiple todo items provided in the request body.
+     *
+     * @param deletions   the list of todos to delete
+     * @param currentUser the authenticated user principal
+     * @return {@link ResponseEntity} with status {@code 204 No Content} on success
+     * @throws BadRequestException if the deletions list is null or empty
      */
     @DeleteMapping({ "/", "" })
     public ResponseEntity<Void> deleteMultipleTodos(@RequestBody List<Todo> deletions,
-            @AuthenticationPrincipal UserDetailsImpl currentUser)
-            throws InternalServerErrorException {
+            @AuthenticationPrincipal UserDetailsImpl currentUser) throws BadRequestException {
+
+        if (deletions == null || deletions.isEmpty()) {
+            throw new BadRequestException("No updates provided", HttpMethod.DELETE);
+        }
 
         LOGGER.info("Deleting multiple Todos: '{}'", deletions);
-        if (!todoService.deleteMultipleTodos(currentUser.getId(), deletions)) {
-            throw new InternalServerErrorException("Failed to delete all Todos", HttpMethod.DELETE);
+
+        // Extract all ids into a list for deletion
+        List<UUID> uuids = deletions.stream().map(Todo::id).toList();
+
+        int numRowsDeleted = dao.deleteMultipleTodos(currentUser.getId(), uuids);
+        int difference = uuids.size() - numRowsDeleted;
+        if (difference != 0) {
+            LOGGER.warn("Bulk delete mismatch. Expected: {}, Actual: {}", uuids.size(), numRowsDeleted);
         }
         return ResponseEntity.noContent().build();
     }

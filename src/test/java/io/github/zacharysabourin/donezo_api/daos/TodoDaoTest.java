@@ -58,8 +58,9 @@ class TodoDaoTest {
     @Test
     void createTodo_success() {
         TodoRequest todo = new TodoRequest("Testing the todo creation", false, 200);
-        Todo result = dao.createTodo(VALID_USER_ID, todo);
-
+        Optional<Todo> created = dao.createTodo(VALID_USER_ID, todo);
+        Todo result = created.get();
+        
         assertNotNull(result);
         assertNotNull(result.id());
         assertNotNull(result.createdAt());
@@ -79,7 +80,7 @@ class TodoDaoTest {
         // Test single value updates
         TodoUpdateRequest update = new TodoUpdateRequest(Optional.ofNullable(null), Optional.ofNullable(null),
                 Optional.ofNullable(22));
-        int numRowsAffected = dao.updateTodo(VALID_USER_ID,validTodoId, update);
+        int numRowsAffected = dao.updateTodo(VALID_USER_ID, validTodoId, update);
         assertEquals(1, numRowsAffected);
 
         // next single value update

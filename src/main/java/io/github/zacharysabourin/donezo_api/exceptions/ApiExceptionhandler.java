@@ -1,6 +1,7 @@
 package io.github.zacharysabourin.donezo_api.exceptions;
 
 import org.jspecify.annotations.Nullable;
+import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -70,5 +71,13 @@ public class ApiExceptionhandler extends ResponseEntityExceptionHandler {
     public @Nullable ResponseEntity<Object> handleBadRequestException(BadRequestException ex,
             WebRequest request) {
         return handleExceptionInternal(ex, null, HttpHeaders.EMPTY, HttpStatus.BAD_REQUEST, request);
+    }
+
+    @ResponseBody
+    @ExceptionHandler(DataAccessException.class)
+    public @Nullable ResponseEntity<Object> handleDataAccessException(DataAccessException ex,
+            WebRequest request) {
+        logger.error("Database operation failed", ex);
+        return handleExceptionInternal(ex, null, HttpHeaders.EMPTY, HttpStatus.INTERNAL_SERVER_ERROR, request);
     }
 }
