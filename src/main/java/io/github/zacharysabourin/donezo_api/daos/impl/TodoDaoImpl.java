@@ -3,160 +3,185 @@ package io.github.zacharysabourin.donezo_api.daos.impl;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import javax.sql.DataSource;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.core.namedparam.SqlParameterSource;
 import org.springframework.stereotype.Repository;
 
 import io.github.zacharysabourin.donezo_api.daos.TodoDao;
+import io.github.zacharysabourin.donezo_api.dtos.BulkTodoUpdateRequest;
 import io.github.zacharysabourin.donezo_api.dtos.Todo;
-import io.github.zacharysabourin.donezo_api.models.BulkTodoUpdateRequest;
-import io.github.zacharysabourin.donezo_api.models.TodoRequest;
-import io.github.zacharysabourin.donezo_api.models.TodoUpdateRequest;
+import io.github.zacharysabourin.donezo_api.dtos.TodoRequest;
+import io.github.zacharysabourin.donezo_api.dtos.TodoUpdateRequest;
 
 @Repository
 public class TodoDaoImpl implements TodoDao {
     private static final Logger LOGGER = LoggerFactory.getLogger(TodoDaoImpl.class);
 
-    private final JdbcTemplate jdbcTemplate;
+    private static final String COMPLETED = "completed";
+    private static final String POSITION = "position";
+    private static final String USER_ID = "user_id";
+    private static final String TEXT = "text";
+    private static final String ID = "id";
+    private static final String CREATED_AT = "created_at";
+
+    private final NamedParameterJdbcTemplate jdbcTemplate;
 
     public TodoDaoImpl(DataSource dataSource) {
-        this.jdbcTemplate = new JdbcTemplate(dataSource);
+        this.jdbcTemplate = new NamedParameterJdbcTemplate(dataSource);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
-    public List<Todo> getTodos(UUID userId) {
-        String sql = "select * from todos where user_id = ?";
-        LOGGER.info("Querying DB: '{}' for userId: '{}'", sql, userId);
-        return jdbcTemplate.query(sql, this::getDefaultRowMapper, userId);
+    public List<Todo> getTodosByUserId(UUID userId) {
+        String sql = "SELECT * FROM todos WHERE user_id = :user_id";
+        MapSqlParameterSource params = new MapSqlParameterSource(USER_ID, userId);
+        return jdbcTemplate.query(sql, params, this::getDefaultRowMapper);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
-    public Todo createTodo(TodoRequest request) {
-        String sql = "insert into todos (user_id, text, completed, position) values (?, ?, ?, ?) RETURNING id";
-        LOGGER.info("Updating DB: '{}' for userId: '{}'", sql, request.userId());
+    public Optional<Todo> createTodo(UUID userId, TodoRequest request) {
+        // Single round-trip using RETURNING *
+        String sql = """
+                INSERT INTO todos (user_id, text, completed, position)
+                VALUES (:user_id, :text, :completed, :position)
+                RETURNING *
+                """;
+        LOGGER.info("Creating todo for userId: '{}'", userId);
 
-        // Using a RETURNING query mapped to a UUID to allow proper selecting
-        UUID key = jdbcTemplate.queryForObject(sql, UUID.class,
-                request.userId(),
-                request.text(),
-                request.completed(),
-                request.position());
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue(USER_ID, userId)
+                .addValue(TEXT, request.text())
+                .addValue(COMPLETED, request.completed())
+                .addValue(POSITION, request.position());
 
-        // Do a quick query to retrieve the newly persisted Todo
-        String selectSql = "select * from todos where id = ?";
-        LOGGER.info("Querying DB: '{}' with key: '{}'", selectSql, key);
-        return jdbcTemplate.query(selectSql, rs -> rs.next() ? getDefaultRSE(rs) : null, key);
+        Todo createdTodo = jdbcTemplate.queryForObject(sql, params, this::getDefaultRowMapper);
+        return Optional.ofNullable(createdTodo);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
-    public int updateTodo(UUID todoId, TodoUpdateRequest updates) {
-        String sqlFirstHalf = "update todos set ";
-        String sqlSecondHalf = " where id = ?";
-        List<Object> params = new ArrayList<>();
+    public int updateTodo(UUID userId, UUID todoId, TodoUpdateRequest updates) {
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue(ID, todoId)
+                .addValue(USER_ID, userId);
 
-        // Add each value if present in the object and construct the query
-        if (updates.text().isPresent()) {
-            sqlFirstHalf = sqlFirstHalf.concat("text = ?, ");
-            params.add(updates.text().get());
-        }
-        if (updates.completed().isPresent()) {
-            sqlFirstHalf = sqlFirstHalf.concat("completed = ?, ");
-            params.add(updates.completed().get());
-        }
-        if (updates.position().isPresent()) {
-            sqlFirstHalf = sqlFirstHalf.concat("position = ?, ");
-            params.add(updates.position().get());
-        }
+        List<String> setClauses = new ArrayList<>();
 
-        params.add(todoId);
+        updates.text().ifPresent(text -> {
+            setClauses.add("text = :text");
+            params.addValue(TEXT, text);
+        });
+        updates.completed().ifPresent(completed -> {
+            setClauses.add("completed = :completed");
+            params.addValue(COMPLETED, completed);
+        });
+        updates.position().ifPresent(position -> {
+            setClauses.add("position = :position");
+            params.addValue(POSITION, position);
+        });
 
-        // Trim the last 2 bytes of the first half and combine both strings
-        String sqlFinal = sqlFirstHalf.substring(0, sqlFirstHalf.length() - 2).concat(sqlSecondHalf);
-
-        LOGGER.info("Querying DB: '{}' with id: '{}' and values: '{}'", sqlFinal, todoId, params);
-        int numRowsAffected = jdbcTemplate.update(sqlFinal, params.toArray());
-        LOGGER.info("Updated {} rows", numRowsAffected);
-        return numRowsAffected;
-    }
-
-    @Override
-    public int updateTodos(List<BulkTodoUpdateRequest> updates) {
-        if (updates.isEmpty()) {
-            LOGGER.info("No updates to make. List size 0");
+        if (setClauses.isEmpty()) {
             return 0;
         }
-        String sqlFirstHalf = "update todos as t set position = v.new_position from (values ";
-        String sqlSecondHalf = ") as v(id, new_position) where t.id = v.id::uuid";
 
-        List<Object> params = new ArrayList<>(updates.size() * 2);
+        String sql = "UPDATE todos SET " + String.join(", ", setClauses) + " WHERE id = :id AND user_id = :user_id";
 
-        for (BulkTodoUpdateRequest update : updates) {
-            sqlFirstHalf = sqlFirstHalf.concat("(?, ?), ");
-            params.add(update.id());
-            params.add(update.position());
-        }
-
-        String sqlFinal = sqlFirstHalf.substring(0, sqlFirstHalf.length() - 2).concat(sqlSecondHalf);
-        LOGGER.info("Querying DB: '{}' with values: '{}'", sqlFinal, params);
-        int numRowsAffected = jdbcTemplate.update(sqlFinal, params.toArray());
+        LOGGER.info("Updating todo '{}' for userId: '{}'", todoId, userId);
+        int numRowsAffected = jdbcTemplate.update(sql, params);
         LOGGER.info("Updated {} rows", numRowsAffected);
         return numRowsAffected;
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public int updateTodos(UUID userId, List<BulkTodoUpdateRequest> updates) {
+        if (updates == null || updates.isEmpty()) {
+            LOGGER.info("No updates provided. Skipping batch update.");
+            return 0;
+        }
+
+        String sql = "UPDATE todos SET position = :position WHERE id = :id AND user_id = :user_id";
+        LOGGER.info("Executing batch update for {} items for userId: '{}'", updates.size(), userId);
+
+        SqlParameterSource[] batchParams = updates.stream()
+                .map(update -> new MapSqlParameterSource()
+                        .addValue(ID, update.id())
+                        .addValue(POSITION, update.position())
+                        .addValue(USER_ID, userId))
+                .toArray(SqlParameterSource[]::new);
+
+        int[] updateCounts = jdbcTemplate.batchUpdate(sql, batchParams);
+        return Arrays.stream(updateCounts).sum();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public int deleteTodo(UUID userId, UUID todoId) {
-        String sql = "delete from todos where user_id = ? and id = ?";
-        LOGGER.info("Updating DB: '{}' for userId: '{}'", sql, userId);
-        int numRowsAffected = jdbcTemplate.update(sql, userId, todoId);
+        String sql = "DELETE FROM todos WHERE user_id = :user_id AND id = :id";
+        LOGGER.info("Deleting todo '{}' for userId: '{}'", todoId, userId);
+
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue(USER_ID, userId)
+                .addValue(ID, todoId);
+
+        int numRowsAffected = jdbcTemplate.update(sql, params);
         LOGGER.info("Deleted {} rows", numRowsAffected);
         return numRowsAffected;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
-    public int deleteMultipleTodos(List<UUID> deletions) {
-        if (deletions.isEmpty()) {
-            LOGGER.info("No deletions to make. List size 0");
+    public int deleteMultipleTodos(UUID userId, List<UUID> deletions) {
+        if (deletions == null || deletions.isEmpty()) {
+            LOGGER.info("No deletions provided. Skipping batch delete.");
             return 0;
         }
-        String sqlFirstHalf = "delete from todos where id in(";
 
-        // Ensure same number of bind parameters as UUIDs
-        for (int i = 0; i < deletions.size(); i++) {
-            sqlFirstHalf = sqlFirstHalf.concat("?, ");
-        }
+        String sql = "DELETE FROM todos WHERE id IN (:deletions) AND user_id = :user_id";
+        LOGGER.info("Deleting {} todos for userId: '{}'", deletions.size(), userId);
 
-        // Trim the last 2 bytes of the first half and combine both strings
-        String sqlFinal = sqlFirstHalf.substring(0, sqlFirstHalf.length() - 2).concat(")");
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("deletions", deletions)
+                .addValue(USER_ID, userId);
 
-        LOGGER.info("Querying DB: '{}' with values: '{}'", sqlFinal, deletions);
-        int numRowsAffected = jdbcTemplate.update(sqlFinal, deletions.toArray());
-        LOGGER.info("Updated {} rows", numRowsAffected);
+        int numRowsAffected = jdbcTemplate.update(sql, params);
+        LOGGER.info("Deleted {} rows", numRowsAffected);
         return numRowsAffected;
-    }
-
-    /*
-     * ResultSetExtractor callback function for mapping column names to a Todo
-     * entity.
-     */
-    private Todo getDefaultRSE(ResultSet resultSet) throws SQLException {
-        return new Todo(resultSet.getObject("id", java.util.UUID.class),
-                resultSet.getObject("user_id", java.util.UUID.class),
-                resultSet.getString("text"),
-                resultSet.getBoolean("completed"),
-                resultSet.getInt("position"),
-                resultSet.getTimestamp("created_at"));
     }
 
     /*
      * RowMapper callback function for mapping column names to a Todo entity.
      */
     private Todo getDefaultRowMapper(ResultSet resultSet, int rowNum) throws SQLException {
-        return getDefaultRSE(resultSet);
+        return new Todo(
+                resultSet.getObject(ID, UUID.class),
+                resultSet.getObject(USER_ID, UUID.class),
+                resultSet.getString(TEXT),
+                resultSet.getBoolean(COMPLETED),
+                resultSet.getInt(POSITION),
+                resultSet.getTimestamp(CREATED_AT));
     }
 }

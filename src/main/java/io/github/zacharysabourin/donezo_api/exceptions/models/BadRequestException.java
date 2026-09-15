@@ -31,11 +31,17 @@ public class BadRequestException extends ServletException implements ErrorRespon
         return this.httpMethod;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public HttpStatusCode getStatusCode() {
         return HttpStatus.BAD_REQUEST;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public ProblemDetail getBody() {
         return this.body;

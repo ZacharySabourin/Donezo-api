@@ -1,67 +1,75 @@
 package io.github.zacharysabourin.donezo_api.daos;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
+import io.github.zacharysabourin.donezo_api.dtos.BulkTodoUpdateRequest;
 import io.github.zacharysabourin.donezo_api.dtos.Todo;
-import io.github.zacharysabourin.donezo_api.models.BulkTodoUpdateRequest;
-import io.github.zacharysabourin.donezo_api.models.TodoRequest;
-import io.github.zacharysabourin.donezo_api.models.TodoUpdateRequest;
+import io.github.zacharysabourin.donezo_api.dtos.TodoRequest;
+import io.github.zacharysabourin.donezo_api.dtos.TodoUpdateRequest;
 
 /**
- * DAO that allows creating, reading, updating, and deleting Todo entities.
+ * Data Access Object interface for managing {@link Todo} persistence
+ * operations.
  */
 public interface TodoDao {
 
     /**
-     * Gets all todos given a specific user id.
+     * Retrieves all todos associated with a specific user.
      * 
-     * @param userId The given user id.
-     * @return A List containing all Todos for a given user. May be empty.
+     * @param userId the unique identifier of the user
+     * @return a list of todos owned by the user, or an empty list if none exist
      */
-    public List<Todo> getTodos(UUID userId);
+    List<Todo> getTodosByUserId(UUID userId);
 
     /**
-     * Persists a new Todo entity given the TodoRequest object.
+     * Persists a new todo entity for a user.
      * 
-     * @param request The incoming TodoRequest.
-     * @return Returns the newly persisted Todo once saved.
+     * @param userId  the unique identifier of the user creating the todo
+     * @param request the request object containing details for the new todo
+     * @return an {@link Optional} containing the persisted todo, or empty if
+     *         creation failed
      */
-    public Todo createTodo(TodoRequest request);
+    Optional<Todo> createTodo(UUID userId, TodoRequest request);
 
     /**
-     * Updates a specific Todo entity using the provided update values.
+     * Updates fields on an existing todo entity.
      * 
-     * @param todoId  The id of the Todo to update.
-     * @param updates The column names and new values to persist in the DB.
-     * @return The number of rows affected by the update. Should be 1.
+     * @param userId  the unique identifier of the owning user
+     * @param todoId  the unique identifier of the todo to update
+     * @param updates the request object containing fields to update
+     * @return the number of rows affected (typically {@code 1} on success,
+     *         {@code 0} if not found)
      */
-    public int updateTodo(UUID todoId, TodoUpdateRequest updates);
+    int updateTodo(UUID userId, UUID todoId, TodoUpdateRequest updates);
 
     /**
-     * Updates Todo entities using the provided update values.
+     * Performs a batch update on multiple todo entities for a user.
      * 
-     * @param updates A list of ids and new values to persist in the DB.
-     * @return The number of rows affected by the update. Should be the same length
-     *         as the incoming list.
+     * @param userId  the unique identifier of the owning user
+     * @param updates a list of batch update requests containing todo IDs and new
+     *                field values
+     * @return the total number of rows affected across all updates
      */
-    public int updateTodos(List<BulkTodoUpdateRequest> updates);
+    int updateTodos(UUID userId, List<BulkTodoUpdateRequest> updates);
 
     /**
-     * Deletes a specific Todo given the user and Todo ids.
+     * Deletes a specific todo entity belonging to a user.
      * 
-     * @param userId The user id of the Todo to delete.
-     * @param todoId The id of the Todo to delete.
-     * @return The number of rows affected by the update. Should be 1.
+     * @param userId the unique identifier of the owning user
+     * @param todoId the unique identifier of the todo to delete
+     * @return the number of rows deleted (typically {@code 1} on success, {@code 0}
+     *         if not found)
      */
-    public int deleteTodo(UUID userId, UUID todoId);
+    int deleteTodo(UUID userId, UUID todoId);
 
     /**
-     * Deletes all Todos given the ids.
+     * Deletes multiple todo entities belonging to a user.
      * 
-     * @param deletions The list of ids of Todo to delete.
-     * @return The number of rows affected by the update. Should be the same length
-     *         as the incoming list.
+     * @param userId    the unique identifier of the owning user
+     * @param deletions a list of todo IDs to delete
+     * @return the total number of rows deleted
      */
-    public int deleteMultipleTodos(List<UUID> deletions);
+    int deleteMultipleTodos(UUID userId, List<UUID> deletions);
 }

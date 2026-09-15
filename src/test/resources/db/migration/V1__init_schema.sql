@@ -15,5 +15,3 @@ CREATE TABLE IF NOT EXISTS todos (
     position INTEGER NOT NULL,
     created_at TIMESTAMP DEFAULT NOW()
 );
-
-CREATE INDEX idx_todos_user_position ON todos(user_id, position);

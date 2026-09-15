@@ -31,11 +31,17 @@ public class InternalServerErrorException extends ServletException implements Er
         return this.httpMethod;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public HttpStatusCode getStatusCode() {
         return HttpStatus.INTERNAL_SERVER_ERROR;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public ProblemDetail getBody() {
         return this.body;
