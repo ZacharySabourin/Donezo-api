@@ -26,10 +26,10 @@ import org.springframework.test.web.servlet.client.RestTestClient;
 import org.springframework.test.web.servlet.client.RestTestClient.RequestBodySpec;
 
 import io.github.zacharysabourin.donezo_api.config.EmbeddedPostgresWithFlywayDataSourceConfiguration;
+import io.github.zacharysabourin.donezo_api.dtos.BulkTodoUpdateRequest;
 import io.github.zacharysabourin.donezo_api.dtos.Todo;
-import io.github.zacharysabourin.donezo_api.models.BulkTodoUpdateRequest;
-import io.github.zacharysabourin.donezo_api.models.TodoRequest;
-import io.github.zacharysabourin.donezo_api.models.TodoUpdateRequest;
+import io.github.zacharysabourin.donezo_api.dtos.TodoRequest;
+import io.github.zacharysabourin.donezo_api.dtos.TodoUpdateRequest;
 
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
 @AutoConfigureRestTestClient

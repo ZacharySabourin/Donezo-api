@@ -31,11 +31,17 @@ public class NotFoundException extends ServletException implements ErrorResponse
         return this.httpMethod;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public HttpStatusCode getStatusCode() {
         return HttpStatus.NOT_FOUND;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public ProblemDetail getBody() {
         return this.body;

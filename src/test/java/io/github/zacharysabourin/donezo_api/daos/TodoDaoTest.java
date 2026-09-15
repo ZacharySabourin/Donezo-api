@@ -19,10 +19,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 
 import io.github.zacharysabourin.donezo_api.config.EmbeddedPostgresWithFlywayDataSourceConfiguration;
+import io.github.zacharysabourin.donezo_api.dtos.BulkTodoUpdateRequest;
 import io.github.zacharysabourin.donezo_api.dtos.Todo;
-import io.github.zacharysabourin.donezo_api.models.BulkTodoUpdateRequest;
-import io.github.zacharysabourin.donezo_api.models.TodoRequest;
-import io.github.zacharysabourin.donezo_api.models.TodoUpdateRequest;
+import io.github.zacharysabourin.donezo_api.dtos.TodoRequest;
+import io.github.zacharysabourin.donezo_api.dtos.TodoUpdateRequest;
 
 @SpringBootTest
 @Import(EmbeddedPostgresWithFlywayDataSourceConfiguration.class)

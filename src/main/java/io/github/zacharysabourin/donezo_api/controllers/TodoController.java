@@ -19,13 +19,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import io.github.zacharysabourin.donezo_api.daos.TodoDao;
+import io.github.zacharysabourin.donezo_api.dtos.BulkTodoUpdateRequest;
 import io.github.zacharysabourin.donezo_api.dtos.Todo;
+import io.github.zacharysabourin.donezo_api.dtos.TodoRequest;
+import io.github.zacharysabourin.donezo_api.dtos.TodoUpdateRequest;
 import io.github.zacharysabourin.donezo_api.exceptions.models.BadRequestException;
 import io.github.zacharysabourin.donezo_api.exceptions.models.InternalServerErrorException;
 import io.github.zacharysabourin.donezo_api.exceptions.models.NotFoundException;
-import io.github.zacharysabourin.donezo_api.models.BulkTodoUpdateRequest;
-import io.github.zacharysabourin.donezo_api.models.TodoRequest;
-import io.github.zacharysabourin.donezo_api.models.TodoUpdateRequest;
 import io.github.zacharysabourin.donezo_api.models.UserDetailsImpl;
 
 /**

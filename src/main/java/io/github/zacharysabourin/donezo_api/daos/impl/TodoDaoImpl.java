@@ -18,10 +18,10 @@ import org.springframework.jdbc.core.namedparam.SqlParameterSource;
 import org.springframework.stereotype.Repository;
 
 import io.github.zacharysabourin.donezo_api.daos.TodoDao;
+import io.github.zacharysabourin.donezo_api.dtos.BulkTodoUpdateRequest;
 import io.github.zacharysabourin.donezo_api.dtos.Todo;
-import io.github.zacharysabourin.donezo_api.models.BulkTodoUpdateRequest;
-import io.github.zacharysabourin.donezo_api.models.TodoRequest;
-import io.github.zacharysabourin.donezo_api.models.TodoUpdateRequest;
+import io.github.zacharysabourin.donezo_api.dtos.TodoRequest;
+import io.github.zacharysabourin.donezo_api.dtos.TodoUpdateRequest;
 
 @Repository
 public class TodoDaoImpl implements TodoDao {
@@ -32,7 +32,7 @@ public class TodoDaoImpl implements TodoDao {
     private static final String USER_ID = "user_id";
     private static final String TEXT = "text";
     private static final String ID = "id";
-
+    private static final String CREATED_AT = "created_at";
 
     private final NamedParameterJdbcTemplate jdbcTemplate;
 
@@ -40,16 +40,22 @@ public class TodoDaoImpl implements TodoDao {
         this.jdbcTemplate = new NamedParameterJdbcTemplate(dataSource);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public List<Todo> getTodosByUserId(UUID userId) {
-        String sql = "select * from todos where user_id = :user_id";
-        LOGGER.info("Querying DB: '{}' for userId: '{}'", sql, userId);
+        String sql = "SELECT * FROM todos WHERE user_id = :user_id";
         MapSqlParameterSource params = new MapSqlParameterSource(USER_ID, userId);
         return jdbcTemplate.query(sql, params, this::getDefaultRowMapper);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Optional<Todo> createTodo(UUID userId, TodoRequest request) {
+        // Single round-trip using RETURNING *
         String sql = """
                 INSERT INTO todos (user_id, text, completed, position)
                 VALUES (:user_id, :text, :completed, :position)
@@ -63,11 +69,13 @@ public class TodoDaoImpl implements TodoDao {
                 .addValue(COMPLETED, request.completed())
                 .addValue(POSITION, request.position());
 
-        // Single round-trip using RETURNING *
         Todo createdTodo = jdbcTemplate.queryForObject(sql, params, this::getDefaultRowMapper);
         return Optional.ofNullable(createdTodo);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public int updateTodo(UUID userId, UUID todoId, TodoUpdateRequest updates) {
         MapSqlParameterSource params = new MapSqlParameterSource()
@@ -101,6 +109,9 @@ public class TodoDaoImpl implements TodoDao {
         return numRowsAffected;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public int updateTodos(UUID userId, List<BulkTodoUpdateRequest> updates) {
         if (updates == null || updates.isEmpty()) {
@@ -122,6 +133,9 @@ public class TodoDaoImpl implements TodoDao {
         return Arrays.stream(updateCounts).sum();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public int deleteTodo(UUID userId, UUID todoId) {
         String sql = "DELETE FROM todos WHERE user_id = :user_id AND id = :id";
@@ -136,6 +150,9 @@ public class TodoDaoImpl implements TodoDao {
         return numRowsAffected;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public int deleteMultipleTodos(UUID userId, List<UUID> deletions) {
         if (deletions == null || deletions.isEmpty()) {
@@ -165,6 +182,6 @@ public class TodoDaoImpl implements TodoDao {
                 resultSet.getString(TEXT),
                 resultSet.getBoolean(COMPLETED),
                 resultSet.getInt(POSITION),
-                resultSet.getTimestamp("created_at"));
+                resultSet.getTimestamp(CREATED_AT));
     }
 }

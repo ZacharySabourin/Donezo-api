@@ -4,7 +4,9 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -16,22 +18,22 @@ import io.github.zacharysabourin.donezo_api.exceptions.models.InternalServerErro
 import io.github.zacharysabourin.donezo_api.exceptions.models.NotFoundException;
 
 /**
- * A custom exception handler that hooks into Spring's own exception handling
- * mechanism. Used to handle the custom exceptions created for this application.
- * Extends {@link ResponseEntityExceptionHandler}
+ * Global exception handler that intercepts application-specific and Spring
+ * framework exceptions.
+ * Extends {@link ResponseEntityExceptionHandler} to provide centralized HTTP
+ * response translation.
  */
 @ControllerAdvice
 public class ApiExceptionhandler extends ResponseEntityExceptionHandler {
 
     /**
-     * Customize the handling of {@link NotFoundException}.
-     * <p>
-     * This method delegates to {@link #handleExceptionInternal}.
-     * 
-     * @param ex      the exception to handle
-     * @param request the current request
-     * @return a {@code ResponseEntity} for the response to use, possibly
-     *         {@code null} when the response is already committed
+     * Handles {@link NotFoundException} by translating it to a
+     * {@code 404 Not Found} response.
+     *
+     * @param ex      the caught exception
+     * @param request the active web request
+     * @return a {@link ResponseEntity} containing the formatted response, or
+     *         {@code null} if committed
      */
     @ResponseBody
     @ExceptionHandler(NotFoundException.class)
@@ -40,14 +42,13 @@ public class ApiExceptionhandler extends ResponseEntityExceptionHandler {
     }
 
     /**
-     * Customize the handling of {@link InternalServerErrorException}.
-     * <p>
-     * This method delegates to {@link #handleExceptionInternal}.
-     * 
-     * @param ex      the exception to handle
-     * @param request the current request
-     * @return a {@code ResponseEntity} for the response to use, possibly
-     *         {@code null} when the response is already committed
+     * Handles {@link InternalServerErrorException} by translating it to a
+     * {@code 500 Internal Server Error} response.
+     *
+     * @param ex      the caught exception
+     * @param request the active web request
+     * @return a {@link ResponseEntity} containing the formatted response, or
+     *         {@code null} if committed
      */
     @ResponseBody
     @ExceptionHandler(InternalServerErrorException.class)
@@ -57,14 +58,13 @@ public class ApiExceptionhandler extends ResponseEntityExceptionHandler {
     }
 
     /**
-     * Customize the handling of {@link BadRequestException}.
-     * <p>
-     * This method delegates to {@link #handleExceptionInternal}.
-     * 
-     * @param ex      the exception to handle
-     * @param request the current request
-     * @return a {@code ResponseEntity} for the response to use, possibly
-     *         {@code null} when the response is already committed
+     * Handles {@link BadRequestException} by translating it to a
+     * {@code 400 Bad Request} response.
+     *
+     * @param ex      the caught exception
+     * @param request the active web request
+     * @return a {@link ResponseEntity} containing the formatted response, or
+     *         {@code null} if committed
      */
     @ResponseBody
     @ExceptionHandler(BadRequestException.class)
@@ -73,11 +73,33 @@ public class ApiExceptionhandler extends ResponseEntityExceptionHandler {
         return handleExceptionInternal(ex, null, HttpHeaders.EMPTY, HttpStatus.BAD_REQUEST, request);
     }
 
+    /**
+     * Handles persistence-layer {@link DataAccessException} by logging the database
+     * error and returning a {@code 500 Internal Server Error} response.
+     *
+     * @param ex      the database exception
+     * @param request the active web request
+     * @return a {@link ResponseEntity} containing the formatted response, or
+     *         {@code null} if committed
+     */
     @ResponseBody
     @ExceptionHandler(DataAccessException.class)
     public @Nullable ResponseEntity<Object> handleDataAccessException(DataAccessException ex,
             WebRequest request) {
         logger.error("Database operation failed", ex);
         return handleExceptionInternal(ex, null, HttpHeaders.EMPTY, HttpStatus.INTERNAL_SERVER_ERROR, request);
+    }
+
+    /**
+     * Handles authentication failures by generating an RFC 7807
+     * {@link ProblemDetail} payload with a {@code 401 Unauthorized} status.
+     *
+     * @param ex the authentication exception
+     * @return a populated {@link ProblemDetail} detailing the authentication
+     *         failure
+     */
+    @ExceptionHandler(AuthenticationException.class)
+    public ProblemDetail handleAuthenticationException(AuthenticationException ex) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, "Invalid username or password");
     }
 }
