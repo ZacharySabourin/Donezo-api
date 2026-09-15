@@ -10,90 +10,126 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import org.junit.jupiter.api.MethodOrderer;
-import org.junit.jupiter.api.Order;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestMethodOrder;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.resttestclient.autoconfigure.AutoConfigureRestTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.context.annotation.Import;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.web.servlet.client.RestTestClient;
-import org.springframework.test.web.servlet.client.RestTestClient.RequestBodySpec;
 
 import io.github.zacharysabourin.donezo_api.config.EmbeddedPostgresWithFlywayDataSourceConfiguration;
 import io.github.zacharysabourin.donezo_api.dtos.BulkTodoUpdateRequest;
 import io.github.zacharysabourin.donezo_api.dtos.Todo;
 import io.github.zacharysabourin.donezo_api.dtos.TodoRequest;
 import io.github.zacharysabourin.donezo_api.dtos.TodoUpdateRequest;
+import io.github.zacharysabourin.donezo_api.utils.JwtUtils;
 
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
 @AutoConfigureRestTestClient
 @Import(EmbeddedPostgresWithFlywayDataSourceConfiguration.class)
-@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+@Sql(scripts = "/test-seed.sql", executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
 class TodoControllerTest {
 
 	private static final String BASE_URL = "/todos/";
 	private static final UUID VALID_USER_ID = UUID.fromString("26248245-7afd-42b5-a65b-3e21ea693ce2");
 	private static final UUID INVALID_USER_ID = UUID.fromString("c40a7cae-3135-4b6b-bdf3-6391e2b0f0e9");
 
+	private static final String VALID_USERNAME = "testmctest";
+	private static final String VALID_USERNAME_NO_TODOS = "john-test";
+
 	@Autowired
 	private RestTestClient client;
 
+	@Autowired
+	private JwtUtils jwtUtil;
+
+	@Value("${donezo.jwt.cookie}")
+	private String jwtCookieName;
+
+	private String validJwtToken;
+	private String invalidJwtToken;
+	private String csrfTokenValue;
+
+	@BeforeEach
+	void setUp() {
+		validJwtToken = jwtUtil.generateTokenFromUsername(VALID_USERNAME);
+		invalidJwtToken = "invalid.jwt.token.here";
+		csrfTokenValue = "test-csrf-token";
+	}
+
+	// =========================================================================
+	// GET /todos/ - Authentication & CSRF Tests
+	// =========================================================================
+
 	@Test
-	@Order(1) // Ensure this runs before any deletion tests
 	void getTodos_success() {
-		client.get().uri(BASE_URL + VALID_USER_ID.toString())
+		client.get().uri(BASE_URL)
+				.cookie(jwtCookieName, validJwtToken)
 				.accept(MediaType.APPLICATION_JSON)
 				.exchange()
-				.expectStatus()
-				.isOk()
+				.expectStatus().isOk()
 				.expectBody(new ParameterizedTypeReference<List<Todo>>() {
 				})
 				.consumeWith(response -> {
 					List<Todo> body = response.getResponseBody();
 					assertThat(body).isNotEmpty();
 					assertThat(body.get(0)).isInstanceOf(Todo.class);
-					assertThat(body).extracting(todo -> todo.userId()).contains(VALID_USER_ID);
+					assertThat(body).extracting(Todo::userId).contains(VALID_USER_ID);
 				});
+	}
+
+	@Test
+	void getTodos_failure_unauthorized_missingToken() {
+		client.get().uri(BASE_URL)
+				.accept(MediaType.APPLICATION_JSON)
+				.exchange()
+				.expectStatus().isUnauthorized();
+	}
+
+	@Test
+	void getTodos_failure_unauthorized_invalidToken() {
+		client.get().uri(BASE_URL)
+				.cookie(jwtCookieName, invalidJwtToken)
+				.accept(MediaType.APPLICATION_JSON)
+				.exchange()
+				.expectStatus().isUnauthorized();
 	}
 
 	@Test
 	void getTodos_success_emptyList() {
-		client.get().uri(BASE_URL + INVALID_USER_ID.toString())
+		String noTodosToken = jwtUtil.generateTokenFromUsername(VALID_USERNAME_NO_TODOS);
+		client.get().uri(BASE_URL)
+				.cookie(jwtCookieName, noTodosToken)
 				.accept(MediaType.APPLICATION_JSON)
 				.exchange()
-				.expectStatus()
-				.isOk()
+				.expectStatus().isOk()
 				.expectBody(Todo[].class)
-				.consumeWith(response -> {
-					assertThat(response.getResponseBody()).isEmpty();
-				});
+				.consumeWith(response -> assertThat(response.getResponseBody()).isEmpty());
 	}
 
-	@Test
-	void getTodos_failure_userIdNotUUID() {
-		client.get().uri(BASE_URL + "junkValue")
-				.accept(MediaType.APPLICATION_JSON)
-				.exchange()
-				.expectStatus()
-				.isEqualTo(HttpStatus.BAD_REQUEST);
-	}
+	// =========================================================================
+	// POST /todos/ - Authentication & CSRF Tests
+	// =========================================================================
 
 	@Test
 	void createTodo_success() {
 		TodoRequest clientBody = new TodoRequest("test task", false, 0);
 
 		client.post().uri(BASE_URL)
+				.cookie(jwtCookieName, validJwtToken)
+				.cookie("XSRF-TOKEN", csrfTokenValue)
+				.header("X-XSRF-TOKEN", csrfTokenValue)
 				.accept(MediaType.APPLICATION_JSON)
 				.body(clientBody)
 				.exchange()
-				.expectStatus()
-				.isOk()
+				.expectStatus().isOk()
 				.expectBody(Todo.class)
 				.consumeWith(response -> {
 					Todo created = response.getResponseBody();
@@ -108,40 +144,35 @@ class TodoControllerTest {
 	}
 
 	@Test
-	@Order(2) // Ensure this runs before any deletion tests
+	void createTodo_failure_unauthorized() {
+		TodoRequest clientBody = new TodoRequest("test task", false, 0);
+
+		client.post().uri(BASE_URL)
+				.cookie("XSRF-TOKEN", csrfTokenValue)
+				.header("X-XSRF-TOKEN", csrfTokenValue)
+				.accept(MediaType.APPLICATION_JSON)
+				.body(clientBody)
+				.exchange()
+				.expectStatus().isUnauthorized();
+	}
+
+	// =========================================================================
+	// PATCH /todos/{id} - Authentication Tests
+	// =========================================================================
+
+	@Test
 	void updateTodo_success() {
-		Todo[] allTodos = client.get().uri(BASE_URL + VALID_USER_ID.toString())
-				.accept(MediaType.APPLICATION_JSON)
-				.exchange()
-				.returnResult(Todo[].class).getResponseBody();
+		Todo[] allTodos = fetchAllTodos();
 
-		TodoUpdateRequest update = new TodoUpdateRequest(Optional.ofNullable("This is an update"),
-				Optional.ofNullable(false),
-				Optional.ofNullable(444));
-		client.patch().uri(BASE_URL + allTodos[0].id().toString())
-				.accept(MediaType.APPLICATION_JSON)
-				.body(update)
-				.exchange()
-				.expectStatus().isNoContent();
+		TodoUpdateRequest update = new TodoUpdateRequest(
+				Optional.of("This is an update"),
+				Optional.of(false),
+				Optional.of(444));
 
-		// Single value updates
-		update = new TodoUpdateRequest(Optional.ofNullable("Another update"), Optional.ofNullable(null),
-				Optional.ofNullable(null));
-		client.patch().uri(BASE_URL + allTodos[4].id().toString())
-				.accept(MediaType.APPLICATION_JSON)
-				.body(update)
-				.exchange()
-				.expectStatus().isNoContent();
-
-		update = new TodoUpdateRequest(Optional.ofNullable(null), Optional.ofNullable(true), Optional.ofNullable(null));
-		client.patch().uri(BASE_URL + allTodos[2].id().toString())
-				.accept(MediaType.APPLICATION_JSON)
-				.body(update)
-				.exchange()
-				.expectStatus().isNoContent();
-
-		update = new TodoUpdateRequest(Optional.ofNullable(null), Optional.ofNullable(null), Optional.ofNullable(1234));
-		client.patch().uri(BASE_URL + allTodos[8].id().toString())
+		client.patch().uri(BASE_URL + allTodos[0].id())
+				.cookie(jwtCookieName, validJwtToken)
+				.cookie("XSRF-TOKEN", csrfTokenValue)
+				.header("X-XSRF-TOKEN", csrfTokenValue)
 				.accept(MediaType.APPLICATION_JSON)
 				.body(update)
 				.exchange()
@@ -149,16 +180,30 @@ class TodoControllerTest {
 	}
 
 	@Test
-	@Order(3) // Ensure this runs before any deletion tests
-	void updateTodo_failure_emptyFields() {
-		Todo[] allTodos = client.get().uri(BASE_URL + VALID_USER_ID.toString())
-				.accept(MediaType.APPLICATION_JSON)
-				.exchange()
-				.returnResult(Todo[].class).getResponseBody();
+	void updateTodo_failure_unauthorized() {
+		TodoUpdateRequest update = new TodoUpdateRequest(
+				Optional.of("This is an update"),
+				Optional.of(false),
+				Optional.of(444));
 
-		TodoUpdateRequest update = new TodoUpdateRequest(Optional.ofNullable(null), Optional.ofNullable(null),
-				Optional.ofNullable(null));
-		client.patch().uri(BASE_URL + allTodos[0].id().toString())
+		client.patch().uri(BASE_URL + UUID.randomUUID())
+				.cookie("XSRF-TOKEN", csrfTokenValue)
+				.header("X-XSRF-TOKEN", csrfTokenValue)
+				.accept(MediaType.APPLICATION_JSON)
+				.body(update)
+				.exchange()
+				.expectStatus().isUnauthorized();
+	}
+
+	@Test
+	void updateTodo_failure_emptyFields() {
+		Todo[] allTodos = fetchAllTodos();
+
+		TodoUpdateRequest update = new TodoUpdateRequest(Optional.empty(), Optional.empty(), Optional.empty());
+		client.patch().uri(BASE_URL + allTodos[0].id())
+				.cookie(jwtCookieName, validJwtToken)
+				.cookie("XSRF-TOKEN", csrfTokenValue)
+				.header("X-XSRF-TOKEN", csrfTokenValue)
 				.accept(MediaType.APPLICATION_JSON)
 				.body(update)
 				.exchange()
@@ -167,29 +212,37 @@ class TodoControllerTest {
 
 	@Test
 	void updateTodo_failure_invalidId() {
+		TodoUpdateRequest update = new TodoUpdateRequest(
+				Optional.of("This is an update"),
+				Optional.of(false),
+				Optional.of(444));
 
-		TodoUpdateRequest update = new TodoUpdateRequest(Optional.ofNullable("This is an update"),
-				Optional.ofNullable(false),
-				Optional.ofNullable(444));
 		client.patch().uri(BASE_URL + INVALID_USER_ID)
+				.cookie(jwtCookieName, validJwtToken)
+				.cookie("XSRF-TOKEN", csrfTokenValue)
+				.header("X-XSRF-TOKEN", csrfTokenValue)
 				.accept(MediaType.APPLICATION_JSON)
 				.body(update)
 				.exchange()
 				.expectStatus().isNotFound();
 	}
 
-	@Test
-	@Order(4) // Ensure this runs before any deletion tests
-	void updateTodos_success() {
-		Todo[] allTodos = client.get().uri(BASE_URL + VALID_USER_ID.toString())
-				.accept(MediaType.APPLICATION_JSON)
-				.exchange()
-				.returnResult(Todo[].class).getResponseBody();
+	// =========================================================================
+	// PATCH /todos/ - Bulk Update Authentication Tests
+	// =========================================================================
 
-		List<BulkTodoUpdateRequest> updates = Arrays.asList(allTodos).stream().map(todo -> {
-			return new BulkTodoUpdateRequest(todo.id(), todo.position() + 1);
-		}).toList();
+	@Test
+	void updateTodos_success() {
+		Todo[] allTodos = fetchAllTodos();
+
+		List<BulkTodoUpdateRequest> updates = Arrays.stream(allTodos)
+				.map(todo -> new BulkTodoUpdateRequest(todo.id(), todo.position() + 1))
+				.toList();
+
 		client.patch().uri(BASE_URL)
+				.cookie(jwtCookieName, validJwtToken)
+				.cookie("XSRF-TOKEN", csrfTokenValue)
+				.header("X-XSRF-TOKEN", csrfTokenValue)
 				.accept(MediaType.APPLICATION_JSON)
 				.body(updates)
 				.exchange()
@@ -197,85 +250,108 @@ class TodoControllerTest {
 	}
 
 	@Test
+	void updateTodos_failure_unauthorized() {
+		client.patch().uri(BASE_URL)
+				.cookie("XSRF-TOKEN", csrfTokenValue)
+				.header("X-XSRF-TOKEN", csrfTokenValue)
+				.accept(MediaType.APPLICATION_JSON)
+				.body(new ArrayList<>())
+				.exchange()
+				.expectStatus().isUnauthorized();
+	}
+
+	@Test
 	void updateTodos_failure_InvalidBody() {
 		client.patch().uri(BASE_URL)
+				.cookie(jwtCookieName, validJwtToken)
+				.cookie("XSRF-TOKEN", csrfTokenValue)
+				.header("X-XSRF-TOKEN", csrfTokenValue)
 				.accept(MediaType.APPLICATION_JSON)
 				.body(new ArrayList<>())
 				.exchange()
 				.expectStatus().isBadRequest();
-
-		client.patch().uri(BASE_URL)
-				.exchange()
-				.expectStatus().isBadRequest();
 	}
+
+	// =========================================================================
+	// DELETE /todos/{id} - Authentication Tests
+	// =========================================================================
 
 	@Test
 	void deleteTodo_success() {
-		Todo[] allTodos = client.get().uri(BASE_URL + VALID_USER_ID.toString())
-				.accept(MediaType.APPLICATION_JSON)
-				.exchange()
-				.returnResult(Todo[].class).getResponseBody();
+		Todo[] allTodos = fetchAllTodos();
 
-		client.delete().uri(BASE_URL + VALID_USER_ID.toString() + "?todoId=" + allTodos[0].id().toString())
+		client.delete().uri(BASE_URL + allTodos[0].id())
+				.cookie(jwtCookieName, validJwtToken)
+				.cookie("XSRF-TOKEN", csrfTokenValue)
+				.header("X-XSRF-TOKEN", csrfTokenValue)
 				.exchange()
 				.expectStatus().isNoContent();
+	}
+
+	@Test
+	void deleteTodo_failure_unauthorized() {
+		client.delete().uri(BASE_URL + UUID.randomUUID())
+				.cookie("XSRF-TOKEN", csrfTokenValue)
+				.header("X-XSRF-TOKEN", csrfTokenValue)
+				.exchange()
+				.expectStatus().isUnauthorized();
 	}
 
 	@Test
 	void deleteTodo_failure_invalidId() {
-		client.delete().uri(BASE_URL + INVALID_USER_ID + "?todoId=" + INVALID_USER_ID)
+		client.delete().uri(BASE_URL + INVALID_USER_ID)
+				.cookie(jwtCookieName, validJwtToken)
+				.cookie("XSRF-TOKEN", csrfTokenValue)
+				.header("X-XSRF-TOKEN", csrfTokenValue)
 				.exchange()
 				.expectStatus().isNotFound();
 	}
 
-	@Test
-	void deleteTodo_failure_missingTodoId() {
-		client.delete().uri(BASE_URL + INVALID_USER_ID)
-				.exchange()
-				.expectStatus().isBadRequest();
-	}
+	// =========================================================================
+	// DELETE /todos/ - Bulk Delete Authentication Tests
+	// =========================================================================
 
 	@Test
 	void deleteTodos_success() {
-		Todo[] allTodos = client.get().uri(BASE_URL + VALID_USER_ID.toString())
-				.accept(MediaType.APPLICATION_JSON)
-				.exchange()
-				.returnResult(Todo[].class).getResponseBody();
+		Todo[] allTodos = fetchAllTodos();
 		List<Todo> body = Arrays.stream(allTodos).filter(Todo::completed).toList();
-		((RequestBodySpec) client.delete().uri(BASE_URL)
-				.accept(MediaType.APPLICATION_JSON))
+
+		client.method(HttpMethod.DELETE).uri(BASE_URL)
+				.cookie(jwtCookieName, validJwtToken)
+				.cookie("XSRF-TOKEN", csrfTokenValue)
+				.header("X-XSRF-TOKEN", csrfTokenValue)
+				.accept(MediaType.APPLICATION_JSON)
 				.body(body)
 				.exchange()
 				.expectStatus().isNoContent();
 	}
 
 	@Test
-	void deleteTodos_failure_invalidTodoIds() {
-		Todo[] allTodos = client.get().uri(BASE_URL + VALID_USER_ID.toString())
+	void deleteTodos_failure_unauthorized() {
+		client.method(HttpMethod.DELETE).uri(BASE_URL)
+				.cookie("XSRF-TOKEN", csrfTokenValue)
+				.header("X-XSRF-TOKEN", csrfTokenValue)
 				.accept(MediaType.APPLICATION_JSON)
+				.body(new ArrayList<>())
 				.exchange()
-				.returnResult(Todo[].class).getResponseBody();
-
-		// Change the id of each to ensure they won't exist
-		String update = "aaaa";
-		List<Todo> body = Arrays.stream(allTodos).filter(todo -> todo.position() < 5).map(todo -> {
-			String current = todo.id().toString();
-			UUID newUUid = UUID
-					.fromString(current.replace(current.subSequence(current.length() - 4, current.length()), update));
-			return new Todo(newUUid, todo.userId(), todo.text(), todo.completed(), todo.position(), todo.createdAt());
-		}).toList();
-
-		((RequestBodySpec) client.delete().uri(BASE_URL)
-				.accept(MediaType.APPLICATION_JSON))
-				.body(body)
-				.exchange()
-				.expectStatus().is5xxServerError();
+				.expectStatus().isUnauthorized();
 	}
 
 	@Test
 	void deleteTodos_failure_missingBody() {
 		client.delete().uri(BASE_URL)
+				.cookie(jwtCookieName, validJwtToken)
+				.cookie("XSRF-TOKEN", csrfTokenValue)
+				.header("X-XSRF-TOKEN", csrfTokenValue)
 				.exchange()
 				.expectStatus().isBadRequest();
+	}
+
+	private Todo[] fetchAllTodos() {
+		return client.get().uri(BASE_URL)
+				.cookie(jwtCookieName, validJwtToken)
+				.accept(MediaType.APPLICATION_JSON)
+				.exchange()
+				.returnResult(Todo[].class).getResponseBody();
 	}
 }

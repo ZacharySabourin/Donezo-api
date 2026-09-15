@@ -1,5 +1,5 @@
 services:
-  donezo-api:
+  api:
     build:
       context: .
       dockerfile: Dockerfile

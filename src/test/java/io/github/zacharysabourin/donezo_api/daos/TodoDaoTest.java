@@ -10,13 +10,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import org.junit.jupiter.api.MethodOrderer;
-import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestMethodOrder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.jdbc.Sql;
 
 import io.github.zacharysabourin.donezo_api.config.EmbeddedPostgresWithFlywayDataSourceConfiguration;
 import io.github.zacharysabourin.donezo_api.dtos.BulkTodoUpdateRequest;
@@ -26,7 +24,7 @@ import io.github.zacharysabourin.donezo_api.dtos.TodoUpdateRequest;
 
 @SpringBootTest
 @Import(EmbeddedPostgresWithFlywayDataSourceConfiguration.class)
-@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+@Sql(scripts = "/test-seed.sql", executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
 class TodoDaoTest {
 
     private static final UUID VALID_USER_ID = UUID.fromString("26248245-7afd-42b5-a65b-3e21ea693ce2");
@@ -37,7 +35,6 @@ class TodoDaoTest {
     private TodoDao dao;
 
     @Test
-    @Order(1) // Ensure this runs before any deletion tests
     void getTodos_success() {
         List<Todo> results = dao.getTodosByUserId(VALID_USER_ID);
 
@@ -60,7 +57,7 @@ class TodoDaoTest {
         TodoRequest todo = new TodoRequest("Testing the todo creation", false, 200);
         Optional<Todo> created = dao.createTodo(VALID_USER_ID, todo);
         Todo result = created.get();
-        
+
         assertNotNull(result);
         assertNotNull(result.id());
         assertNotNull(result.createdAt());
@@ -71,7 +68,6 @@ class TodoDaoTest {
     }
 
     @Test
-    @Order(2) // Ensure this runs before any deletion tests
     void updateTodo_success() {
         // Fetch all todos to allow use of id values
         List<Todo> allTodos = dao.getTodosByUserId(VALID_USER_ID);
@@ -117,7 +113,6 @@ class TodoDaoTest {
     }
 
     @Test
-    @Order(3) // Ensure this runs before any deletion tests
     void updateTodos_success() {
         List<Todo> allTodos = dao.getTodosByUserId(VALID_USER_ID);
         List<BulkTodoUpdateRequest> updates = allTodos.stream().map(todo -> {
