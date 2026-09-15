@@ -1,0 +1,424 @@
+openapi: 3.0.3
+info:
+  title: Donezo-API
+  description: >
+    A production-ready, security-focused RESTful API for multi-user Todo management built with Spring Boot 4.1, Spring Security 6, Spring JDBC, and backed by PostgreSQL.
+    This application serves as the backend for a multi-user Todo management system, featuring cookie-based JWT authentication, 
+    SPA-ready CSRF double-submit cookies, and standardized RFC 9457 Problem Details for HTTP APIs error responses.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080/api
+    description: Local Development Server
+
+paths:
+  /auth/signup:
+    post:
+      summary: Register a new user
+      operationId: signup
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignupRequest'
+      responses:
+        '201':
+          description: User account created successfully
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+              description: Sets the initial XSRF-TOKEN cookie.
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '409':
+          description: Username is already taken (RFC 9457 Problem Detail)
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+
+  /auth/login:
+    post:
+      summary: Authenticate user and issue JWT cookie
+      operationId: login
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Successfully authenticated
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+              description: Sets the secure HttpOnly JWT cookie and XSRF-TOKEN cookie.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /auth/logout:
+    post:
+      summary: Clear user session and authentication cookie
+      operationId: logout
+      tags:
+        - Authentication
+      security:
+        - cookieAuth: []
+        - csrfToken: []
+      responses:
+        '200':
+          description: Successfully logged out
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+              description: Clears the authentication JWT cookie.
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /auth/profile:
+    get:
+      summary: Retrieve current authenticated user profile
+      operationId: getProfile
+      tags:
+        - Authentication
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: Current user profile metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /todos:
+    get:
+      summary: Get all todo items for the authenticated user
+      operationId: getTodos
+      tags:
+        - Todos
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: List of user todo items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Todo'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    post:
+      summary: Create a new todo item
+      operationId: createTodo
+      tags:
+        - Todos
+      security:
+        - cookieAuth: []
+        - csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TodoRequest'
+      responses:
+        '201':
+          description: Todo item created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Todo'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /todos/{id}:
+    patch:
+      summary: Partially update an existing todo item
+      operationId: updateTodo
+      tags:
+        - Todos
+      security:
+        - cookieAuth: []
+        - csrfToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique ID of the todo item to update
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TodoUpdateRequest'
+      responses:
+        '200':
+          description: Updated todo item
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Todo'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+    delete:
+      summary: Delete a todo item by ID
+      operationId: deleteTodo
+      tags:
+        - Todos
+      security:
+        - cookieAuth: []
+        - csrfToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique ID of the todo item to delete
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Todo item deleted successfully
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /todos/bulk:
+    put:
+      summary: Bulk update positions of multiple todo items
+      operationId: bulkUpdateTodos
+      tags:
+        - Todos
+      security:
+        - cookieAuth: []
+        - csrfToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/BulkTodoUpdateRequest'
+      responses:
+        '204':
+          description: Positions updated successfully
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: jwt-token
+      description: HttpOnly JWT cookie containing session authentication token.
+    csrfToken:
+      type: apiKey
+      in: header
+      name: X-XSRF-TOKEN
+      description: Required anti-CSRF token read from the XSRF-TOKEN cookie by single-page apps.
+
+  responses:
+    BadRequestError:
+      description: Validation error or invalid request payload (RFC 9457 Problem Detail)
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+    UnauthorizedError:
+      description: Authentication is missing or invalid JWT provided (RFC 9457 Problem Detail)
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+    NotFoundError:
+      description: The requested resource was not found or does not belong to the user (RFC 9457 Problem Detail)
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetail'
+
+  schemas:
+    SignupRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 40
+          example: john_doe
+        password:
+          type: string
+          minLength: 6
+          maxLength: 50
+          example: securePass123!
+
+    LoginRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          example: john_doe
+        password:
+          type: string
+          example: securePass123!
+
+    UserProfile:
+      type: object
+      required:
+        - id
+        - username
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
+        username:
+          type: string
+          example: john_doe
+
+    Todo:
+      type: object
+      required:
+        - id
+        - userId
+        - text
+        - completed
+        - position
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: c9bf9e57-1685-4c89-bafb-ff5af830be8a
+        userId:
+          type: string
+          format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
+        text:
+          type: string
+          example: Complete Spring Boot documentation
+        completed:
+          type: boolean
+          example: false
+        position:
+          type: integer
+          example: 0
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-09-15T14:30:00Z"
+
+    TodoRequest:
+      type: object
+      required:
+        - text
+        - completed
+        - position
+      properties:
+        text:
+          type: string
+          example: Buy groceries
+        completed:
+          type: boolean
+          example: false
+        position:
+          type: integer
+          example: 1
+
+    TodoUpdateRequest:
+      type: object
+      description: Fields are optional to support partial (PATCH) updates.
+      properties:
+        text:
+          type: string
+          nullable: true
+          example: Buy organic groceries
+        completed:
+          type: boolean
+          nullable: true
+          example: true
+        position:
+          type: integer
+          nullable: true
+          example: 2
+
+    BulkTodoUpdateRequest:
+      type: object
+      required:
+        - id
+        - position
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: c9bf9e57-1685-4c89-bafb-ff5af830be8a
+        position:
+          type: integer
+          example: 3
+
+    ProblemDetail:
+      type: object
+      description: Standard RFC 9457 Problem Details object for HTTP APIs.
+      properties:
+        type:
+          type: string
+          format: uri
+          description: A URI reference identifying the problem type. Defaults to 'about:blank'.
+          example: about:blank
+        title:
+          type: string
+          description: A short, human-readable summary of the problem type.
+          example: Bad Request
+        status:
+          type: integer
+          description: The HTTP status code generated by the origin server for this occurrence.
+          example: 400
+        detail:
+          type: string
+          description: A human-readable explanation specific to this occurrence of the problem.
+          example: "Username must be between 3 and 40 characters"
+        instance:
+          type: string
+          format: uri
+          description: A URI reference that identifies the specific occurrence of the problem.
+          example: /api/auth/signup
