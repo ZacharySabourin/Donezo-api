@@ -11,7 +11,7 @@
 	</parent>
 	<groupId>io.github.zacharysabourin</groupId>
 	<artifactId>donezo-api</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>1.0.0</version>
 	<name>donezo-api</name>
 	<description/>
 	<url/>
