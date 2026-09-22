@@ -4,14 +4,15 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "10100:8080"
+      - "1010:8080"
     environment:
+      JAVA_OPTS: "-Xms128m -Xmx384m"
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PWD: ${POSTGRES_PWD}
       TODO_DB: ${TODO_DB}
       JWT_SECRET: ${JWT_SECRET}
     extra_hosts:
-      - "docker.host.internal:host-gateway"
+      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy
@@ -21,11 +22,8 @@ services:
         max_attempts: 5
       resources:
         limits:
-          cpus: "0.5"
-          memory: 512M
-        reservations:
-          cpus: "0.2"
-          memory: 256M
+          cpus: "1.0"
+          memory: 768M
   postgres:
     image: "postgres:latest"
     environment:
@@ -35,7 +33,7 @@ services:
     volumes:
       - ./config/postgres/initdb.d/:/docker-entrypoint-initdb.d/
     ports:
-      - "10101:5432"
+      - "1011:5432"
     labels:
       org.springframework.boot.jdbc.parameters: "ssl=true&sslmode=require"
     deploy:
